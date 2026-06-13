@@ -1,0 +1,25 @@
+{
+  "name": "driftfold",
+  "version": "0.0.0",
+  "description": "Crawl shadcn/cva component drift, cluster className overrides, fold them back into canonical variants.",
+  "type": "module",
+  "bin": {
+    "driftfold": "./cli/index.ts"
+  },
+  "scripts": {
+    "df": "bun run cli/index.ts",
+    "discover-cluster": "bun run cli/index.ts discover-cluster",
+    "fixture:dev": "cd fixture && bun run dev"
+  },
+  "dependencies": {
+    "ts-morph": "^23.0.0"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "typescript": "^5.5.0"
+  },
+  "engines": {
+    "bun": ">=1.2.0"
+  },
+  "private": true
+}

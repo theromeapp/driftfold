@@ -11,3 +11,4 @@ changeset.json
 # fixture build output
 fixture/.next/
 fixture/out/
+*.tsbuildinfo

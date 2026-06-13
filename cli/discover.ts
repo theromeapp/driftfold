@@ -43,6 +43,32 @@ function normalizeClassString(s: string): string {
   return s.replace(/\s+/g, " ").trim()
 }
 
+// Class-merge helpers whose all-static-string form is a static override.
+const CLASS_HELPERS = new Set(["cn", "clsx", "cx", "classNames", "twMerge", "twJoin"])
+
+/**
+ * Resolve a `cn("a", "b")` / `clsx(...)` / `twMerge(...)` call to a static class
+ * string IFF every argument is a string literal. Real shadcn code overwhelmingly
+ * writes overrides as `className={cn("bg-blue-600 shadow-lg")}` — that is a static,
+ * foldable override, not dynamic. If ANY argument is conditional/identifier/spread
+ * (e.g. `cn(isLoading && "opacity-50", "w-full")`), return undefined → dynamic.
+ */
+function staticFromClassHelper(node: Node | undefined): string | undefined {
+  const call = node?.asKind(SyntaxKind.CallExpression)
+  if (!call) return undefined
+  const callee = call.getExpression().getText()
+  if (!CLASS_HELPERS.has(callee)) return undefined
+  const args = call.getArguments()
+  if (args.length === 0) return undefined
+  const parts: string[] = []
+  for (const arg of args) {
+    const lit = literalText(arg)
+    if (lit === undefined) return undefined // a non-literal arg ⇒ genuinely dynamic
+    parts.push(lit)
+  }
+  return parts.join(" ")
+}
+
 /**
  * Find the cva definition for `component` by convention: a `const
  * <camel>Variants = cva(...)`. Match is case-insensitive on the component part
@@ -181,7 +207,7 @@ export function findUsages(
           className = { kind: "static", value: normalizeClassString(direct) }
         } else {
           const expr = init?.asKind(SyntaxKind.JsxExpression)?.getExpression()
-          const staticInExpr = literalText(expr)
+          const staticInExpr = literalText(expr) ?? staticFromClassHelper(expr)
           if (staticInExpr !== undefined) {
             className = { kind: "static", value: normalizeClassString(staticInExpr) }
           } else if (expr) {

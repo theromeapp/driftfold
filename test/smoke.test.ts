@@ -137,3 +137,21 @@ describe("discover-cluster ground truth (fixture/DRIFT-MAP.md)", () => {
     expect(r.summary.clean).toBe(3)
   })
 })
+
+describe("cn() override resolution (real-shadcn override forms)", () => {
+  const CN_ROOT = "test/fixtures/cn-app"
+
+  test("static-only cn(...) clusters; conditional cn(...) stays dynamic", () => {
+    const r = discoverCluster("Button", CN_ROOT)
+    // cn("a b c") and cn("a","b","c") are the same static set → one cluster, 2 sites
+    expect(r.summary.cluster_count).toBe(1)
+    expect(r.clusters[0]?.site_count).toBe(2)
+    expect(r.clusters[0]?.appearance_utils).toEqual([
+      "bg-blue-600",
+      "hover:bg-blue-700",
+      "text-white",
+    ])
+    // cn(busy && "opacity-50", "bg-red-600") has a conditional arg → untouchable
+    expect(r.summary.dynamic).toBe(1)
+  })
+})

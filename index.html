@@ -1,0 +1,739 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>DriftFold — design-system.html</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    color-scheme: dark;
+    --bg:#080a10; --panel:#10131d; --panel-2:#141826; --line:#222840; --line-soft:#1b2034;
+    --ink:#e9ebf2; --ink-2:#aab2c8; --ink-3:#6f7791;
+    --blue:#4f8cff; --blue-deep:#2f6ad9; --violet:#8b6bff; --amber:#f0b765; --coral:#f08aa6; --mint:#5ed6a4;
+    --sans:'IBM Plex Sans',ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
+    --mono:'IBM Plex Mono',ui-monospace,SFMono-Regular,Menlo,monospace;
+    --display:'Fraunces',Georgia,serif;
+  }
+  * { box-sizing: border-box; }
+  body { margin:0; font:14px/1.55 var(--sans); color:var(--ink); background:var(--bg);
+         background-image:
+           radial-gradient(900px 480px at 12% -8%, rgba(79,140,255,.14), transparent 60%),
+           radial-gradient(760px 420px at 92% -4%, rgba(139,107,255,.12), transparent 62%),
+           radial-gradient(600px 600px at 50% 120%, rgba(94,214,164,.05), transparent 60%);
+         background-attachment:fixed; -webkit-font-smoothing:antialiased; }
+  ::selection { background:rgba(79,140,255,.32); }
+  header { padding:30px 32px 18px; border-bottom:1px solid var(--line-soft); position:sticky; top:0;
+           background:rgba(8,10,16,.82); backdrop-filter:blur(10px) saturate(1.1); z-index:20; }
+  header h1 { margin:0; font-family:var(--display); font-weight:600; font-size:30px; letter-spacing:-.02em;
+              background:linear-gradient(92deg,#fff 18%,#bcd0ff 72%,#c9bdff); -webkit-background-clip:text;
+              background-clip:text; color:transparent; }
+  header h1 .tag { font-family:var(--sans); font-size:13.5px; font-weight:400; letter-spacing:0;
+                   color:var(--ink-3); -webkit-text-fill-color:var(--ink-3); }
+  header p { margin:9px 0 0; color:var(--ink-2); max-width:780px; font-size:14.5px; }
+  .stat { color:var(--mint); font-weight:600; font-variant-numeric:tabular-nums; }
+  .how { margin:15px 0 0; display:flex; flex-wrap:wrap; gap:9px; align-items:center;
+         font-size:12.5px; color:var(--ink-2); }
+  .how b { color:var(--ink); margin-right:3px; }
+  .how span { background:var(--panel); border:1px solid var(--line-soft); border-radius:8px; padding:5px 10px; }
+  .how em { color:#fff; font-style:normal; font-weight:600; }
+  main { max-width:1200px; margin:0 auto; padding:30px 32px 250px; }
+  .df-component { margin:42px 0; }
+  .df-component:first-child { margin-top:26px; }
+  .df-component h2 { font-family:var(--display); font-weight:600; font-size:23px; letter-spacing:-.015em;
+                     margin:0 0 16px; display:flex; align-items:baseline; gap:11px; }
+  .df-sub { color:var(--ink-3); font-weight:400; font-size:13px; font-family:var(--sans); letter-spacing:0; }
+  .df-clean { color:var(--mint); font-weight:600; font-size:13px; font-family:var(--sans); }
+  .df-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(310px,1fr)); gap:16px; }
+  .df-cluster { position:relative; border-radius:14px; padding:16px;
+                background:linear-gradient(180deg,var(--panel-2),var(--panel));
+                border:1px solid var(--line); box-shadow:0 1px 0 rgba(255,255,255,.03) inset, 0 8px 24px -16px rgba(0,0,0,.8);
+                transition:transform .16s ease, border-color .16s ease, box-shadow .16s ease; }
+  .df-cluster:hover { transform:translateY(-2px); border-color:#2e3656;
+                      box-shadow:0 1px 0 rgba(255,255,255,.04) inset, 0 16px 34px -18px rgba(0,0,0,.9); }
+  .df-cluster-head { display:flex; align-items:center; gap:8px; margin-bottom:12px; }
+  .df-cid { font-family:var(--mono); font-weight:600; color:var(--ink-2); }
+  .df-count { color:var(--ink); font-size:13px; font-weight:600; letter-spacing:-.01em; }
+  .df-tag { font-size:10.5px; padding:2px 8px; border-radius:999px; font-weight:600; letter-spacing:.01em;
+            border:1px solid transparent; }
+  .df-tag-outlier { background:rgba(240,183,101,.12); color:var(--amber); border-color:rgba(240,183,101,.3); }
+  .df-tag-mistake { background:rgba(240,138,166,.12); color:var(--coral); border-color:rgba(240,138,166,.32); }
+  .df-swatch { background:radial-gradient(120% 120% at 50% 0%,#fafafa,#ececed); border-radius:10px; padding:20px;
+               display:flex; align-items:center; justify-content:center; min-height:68px; margin-bottom:12px;
+               box-shadow:0 1px 2px rgba(0,0,0,.4) inset; }
+  .df-desc { margin:0 0 13px; font-size:13.5px; color:var(--ink); font-weight:500; letter-spacing:-.005em; }
+  .df-chips-wrap { margin-top:11px; }
+  .df-chips-wrap summary, .df-sites summary, .df-dynamic summary { cursor:pointer; color:var(--ink-3);
+            font-size:12px; transition:color .12s ease; }
+  .df-chips-wrap summary:hover, .df-sites summary:hover, .df-dynamic summary:hover { color:var(--blue); }
+  .df-chips { display:flex; flex-wrap:wrap; gap:5px; margin-top:9px; }
+  .df-chip { font-family:var(--mono); font-size:11px; background:rgba(79,140,255,.09);
+             color:#9fb4e8; padding:2px 7px; border-radius:6px; border:1px solid rgba(79,140,255,.14); }
+  .df-proposal { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+  .df-proposal label { color:var(--ink-2); font-size:11px; font-weight:600; width:100%; text-transform:uppercase;
+                       letter-spacing:.07em; margin-bottom:2px; }
+  .df-select, .df-input { background:#0b0e16; color:var(--ink); border:1px solid #2a3147;
+             border-radius:8px; padding:8px 10px; font-size:13px; font-family:var(--sans); transition:border-color .14s ease; }
+  .df-select { flex:1; min-width:200px; font-weight:500; cursor:pointer; }
+  .df-input { flex:1; min-width:120px; }
+  .df-select:focus, .df-input:focus { outline:none; border-color:var(--blue); box-shadow:0 0 0 3px rgba(79,140,255,.15); }
+  .df-input:disabled { cursor:not-allowed; }
+  /* the adaptive plain-English sentence — the line a human actually reads to know what their pick does */
+  .df-plain { margin:12px 0 0; padding:10px 12px; font-size:13.5px; line-height:1.5; color:var(--ink); font-weight:500;
+              background:linear-gradient(180deg,rgba(79,140,255,.08),rgba(79,140,255,.03));
+              border:1px solid rgba(79,140,255,.2); border-left:3px solid var(--blue); border-radius:9px; }
+  .df-merge .df-plain { background:linear-gradient(180deg,rgba(139,107,255,.1),rgba(139,107,255,.03));
+              border-color:rgba(139,107,255,.26); border-left-color:var(--violet); }
+  .df-why-wrap { margin-top:9px; }
+  .df-why-wrap summary { cursor:pointer; color:var(--ink-3); font-size:12px; list-style:none; transition:color .12s ease; }
+  .df-why-wrap summary:hover { color:var(--blue); }
+  .df-why-wrap summary::-webkit-details-marker { display:none; }
+  .df-why-wrap summary::before { content:"ⓘ "; color:#5a6075; }
+  .df-why { color:var(--ink-2); font-size:12.5px; margin:8px 0 0; font-style:italic; }
+  .df-sites { margin-top:11px; }
+  .df-sites ul, .df-dynamic ul { margin:9px 0 0; padding-left:18px; }
+  .df-sites li, .df-dynamic li { margin:4px 0; font-size:12px; color:var(--ink-2); }
+  .df-sites code, .df-dynamic code { font-family:var(--mono); color:var(--ink-2); }
+  .df-ln { color:var(--ink-3); }
+  .df-keep { color:var(--mint); }
+  .df-dynamic { margin-top:16px; }
+  .df-merge { border-color:rgba(139,107,255,.55) !important;
+              box-shadow:0 0 0 1px rgba(139,107,255,.25), 0 16px 34px -18px rgba(139,107,255,.4) !important; }
+  /* live changeset dock */
+  #dock { position:fixed; bottom:0; left:0; right:0; background:rgba(9,11,18,.94); border-top:1px solid var(--line);
+          backdrop-filter:blur(12px); z-index:30; max-height:230px; overflow:auto; }
+  #dock-bar { display:flex; align-items:center; gap:12px; padding:11px 32px; position:sticky; top:0;
+              background:rgba(9,11,18,.96); border-bottom:1px solid var(--line-soft); }
+  #dock-bar b { font-size:13px; font-weight:600; } #dock-bar .hint { color:var(--ink-3); font-size:12px; }
+  #dock pre { margin:0; padding:13px 32px 22px; font-family:var(--mono); font-size:11.5px;
+              color:#9fb4e8; white-space:pre; }
+  button.df-act { margin-left:auto; }
+  button.df-act, #copy { background:linear-gradient(180deg,var(--blue),var(--blue-deep)); color:#fff; border:0;
+          border-radius:8px; padding:8px 15px; font-size:13px; font-weight:600; cursor:pointer; font-family:var(--sans);
+          box-shadow:0 6px 16px -8px rgba(79,140,255,.7); transition:transform .12s ease, filter .12s ease; }
+  #copy { margin-left:8px; background:#1c2236; box-shadow:none; }
+  button.df-act:hover { filter:brightness(1.08); transform:translateY(-1px); }
+  #copy:hover { background:#252c46; }
+</style>
+</head>
+<body>
+<header>
+  <h1>DriftFold <span class="tag">· what your buttons & cards actually look like</span></h1>
+  <p>We scanned your app and found <span class="stat">10</span> slightly-different looks, used in <span class="stat">21</span> places. Some are accidental copies of each other. Below, each card is one look — decide what to do with it, then download your choices at the bottom.</p>
+  <div class="how">
+    <b>How to use this:</b>
+    <span>① Look at each style.</span>
+    <span>② Pick an action from the dropdown.</span>
+    <span>③ Hit <em>Download my choices</em> — that file tells DriftFold how to clean up the code.</span>
+  </div>
+</header>
+<main>
+  <section class="df-component">
+    <h2>Button <span class="df-sub">6 different looks across 12 places</span></h2>
+    <div class="df-grid">
+  <div class="df-cluster" data-cluster="btn-1">
+    <div class="df-cluster-head">
+      <span class="df-count">Used in 4 places</span>
+      
+    </div>
+    <div class="df-swatch"><button class="inline-flex items-center justify-center gap-2 whitespace-nowrap text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 h-10 px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-full shadow-lg text-white" type="button">brand</button></div>
+    <p class="df-desc">Blue background, pill-shaped, a drop shadow and white text</p>
+    <div class="df-proposal">
+      <label>What should we do?</label>
+      <select class="df-select" data-decision="btn-1"><option value="snap-to" selected>✨ New style</option><option value="merge-into">🔁 Replace (it's a duplicate)</option><option value="keep">✋ Keep as-is</option><option value="rename">✏️ Rename</option></select>
+      <input class="df-input" data-target="btn-1"
+             value="brand" placeholder="name it, e.g. Primary" />
+    </div>
+    <p class="df-plain" data-plain="btn-1"></p>
+    <details class="df-why-wrap"><summary>Why?</summary><p class="df-why">bg-blue-600/hover:bg-blue-700 + rounded-full + shadow-lg + text-white is a distinct elevated pill used in 4 places, unlike default's bg-primary hover:bg-primary/90 — promote to a shared 'brand' variant.</p></details>
+    <details class="df-sites"><summary>Show where it's used (4)</summary>
+      <ul><li><code>app/billing/page.tsx</code> <span class="df-ln">line 21</span></li><li><code>app/checkout/page.tsx</code> <span class="df-ln">line 16</span></li><li><code>app/dashboard/page.tsx</code> <span class="df-ln">line 21</span></li><li><code>app/page.tsx</code> <span class="df-ln">line 18</span></li></ul>
+    </details>
+    <details class="df-chips-wrap"><summary>Exact code</summary>
+      <div class="df-chips"><code class="df-chip">bg-blue-600</code><code class="df-chip">hover:bg-blue-700</code><code class="df-chip">rounded-full</code><code class="df-chip">shadow-lg</code><code class="df-chip">text-white</code></div>
+    </details>
+  </div>
+  <div class="df-cluster" data-cluster="btn-2">
+    <div class="df-cluster-head">
+      <span class="df-count">Used in 3 places</span>
+      
+    </div>
+    <div class="df-swatch"><button class="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 h-10 px-4 py-2 bg-green-600 hover:bg-green-700 text-white" type="button">success</button></div>
+    <p class="df-desc">Green background and white text</p>
+    <div class="df-proposal">
+      <label>What should we do?</label>
+      <select class="df-select" data-decision="btn-2"><option value="snap-to" selected>✨ New style</option><option value="merge-into">🔁 Replace (it's a duplicate)</option><option value="keep">✋ Keep as-is</option><option value="rename">✏️ Rename</option></select>
+      <input class="df-input" data-target="btn-2"
+             value="success" placeholder="name it, e.g. Primary" />
+    </div>
+    <p class="df-plain" data-plain="btn-2"></p>
+    <details class="df-why-wrap"><summary>Why?</summary><p class="df-why">bg-green-600/hover:bg-green-700/text-white recurs across 3 sites as a confirm/success action with no matching cva variant — name it by role as 'success'.</p></details>
+    <details class="df-sites"><summary>Show where it's used (3)</summary>
+      <ul><li><code>app/onboarding/page.tsx</code> <span class="df-ln">line 16</span></li><li><code>app/page.tsx</code> <span class="df-ln">line 23</span></li><li><code>app/profile/page.tsx</code> <span class="df-ln">line 25</span></li></ul>
+    </details>
+    <details class="df-chips-wrap"><summary>Exact code</summary>
+      <div class="df-chips"><code class="df-chip">bg-green-600</code><code class="df-chip">hover:bg-green-700</code><code class="df-chip">text-white</code></div>
+    </details>
+  </div>
+  <div class="df-cluster" data-cluster="btn-3">
+    <div class="df-cluster-head">
+      <span class="df-count">Used in 2 places</span>
+      
+    </div>
+    <div class="df-swatch"><button class="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 h-10 px-4 py-2 bg-red-600 hover:bg-red-700 text-white" type="button">destructive</button></div>
+    <p class="df-desc">Red background and white text</p>
+    <div class="df-proposal">
+      <label>What should we do?</label>
+      <select class="df-select" data-decision="btn-3"><option value="snap-to">✨ New style</option><option value="merge-into" selected>🔁 Replace (it's a duplicate)</option><option value="keep">✋ Keep as-is</option><option value="rename">✏️ Rename</option></select>
+      <input class="df-input" data-target="btn-3"
+             value="destructive" placeholder="name it, e.g. Primary" />
+    </div>
+    <p class="df-plain" data-plain="btn-3"></p>
+    <details class="df-why-wrap"><summary>Why?</summary><p class="df-why">Hand-rolled bg-red-600/hover:bg-red-700/text-white is the destructive role already defined as bg-destructive text-destructive-foreground hover:bg-destructive/90 — fold into the existing variant.</p></details>
+    <details class="df-sites"><summary>Show where it's used (2)</summary>
+      <ul><li><code>app/billing/page.tsx</code> <span class="df-ln">line 26</span></li><li><code>app/dashboard/page.tsx</code> <span class="df-ln">line 26</span></li></ul>
+    </details>
+    <details class="df-chips-wrap"><summary>Exact code</summary>
+      <div class="df-chips"><code class="df-chip">bg-red-600</code><code class="df-chip">hover:bg-red-700</code><code class="df-chip">text-white</code></div>
+    </details>
+  </div>
+  <div class="df-cluster" data-cluster="btn-4">
+    <div class="df-cluster-head">
+      <span class="df-count">Used in 1 place</span>
+      <span class="df-tag df-tag-outlier">only here</span>
+    </div>
+    <div class="df-swatch"><button class="inline-flex items-center justify-center gap-2 whitespace-nowrap text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 h-10 px-4 py-2 bg-[#2563eb] hover:bg-[#1d4ed8] rounded-full shadow-lg text-white" type="button">btn-1</button></div>
+    <p class="df-desc">A custom color background, pill-shaped, a drop shadow and white text</p>
+    <div class="df-proposal">
+      <label>What should we do?</label>
+      <select class="df-select" data-decision="btn-4"><option value="snap-to">✨ New style</option><option value="merge-into" selected>🔁 Replace (it's a duplicate)</option><option value="keep">✋ Keep as-is</option><option value="rename">✏️ Rename</option></select>
+      <input class="df-input" data-target="btn-4"
+             value="btn-1" placeholder="name it, e.g. Primary" />
+    </div>
+    <p class="df-plain" data-plain="btn-4"></p>
+    <details class="df-why-wrap"><summary>Why?</summary><p class="df-why">bg-[#2563eb]/hover:bg-[#1d4ed8] are the literal hexes of blue-600/blue-700, and with identical rounded-full/shadow-lg/text-white this renders pixel-identical to btn-1 — merge the arbitrary-value duplicate into the named cluster.</p></details>
+    <details class="df-sites"><summary>Show where it's used (1)</summary>
+      <ul><li><code>app/settings/page.tsx</code> <span class="df-ln">line 26</span></li></ul>
+    </details>
+    <details class="df-chips-wrap"><summary>Exact code</summary>
+      <div class="df-chips"><code class="df-chip">bg-[#2563eb]</code><code class="df-chip">hover:bg-[#1d4ed8]</code><code class="df-chip">rounded-full</code><code class="df-chip">shadow-lg</code><code class="df-chip">text-white</code></div>
+    </details>
+  </div>
+  <div class="df-cluster" data-cluster="btn-5">
+    <div class="df-cluster-head">
+      <span class="df-count">Used in 1 place</span>
+      <span class="df-tag df-tag-mistake">⚠ looks like a mistake</span>
+    </div>
+    <div class="df-swatch"><button class="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 hover:bg-primary/90 h-10 px-4 py-2 bg-blue-600 text-blue-600" type="button">Button</button></div>
+    <p class="df-desc">Blue background and blue text</p>
+    <div class="df-proposal">
+      <label>What should we do?</label>
+      <select class="df-select" data-decision="btn-5"><option value="snap-to">✨ New style</option><option value="merge-into">🔁 Replace (it's a duplicate)</option><option value="keep" selected>✋ Keep as-is</option><option value="rename">✏️ Rename</option></select>
+      <input class="df-input" data-target="btn-5"
+             value="" placeholder="name it, e.g. Primary" />
+    </div>
+    <p class="df-plain" data-plain="btn-5"></p>
+    <details class="df-why-wrap"><summary>Why?</summary><p class="df-why">bg-blue-600 with text-blue-600 paints the label the same hue as its background (illegible) — an error, not a style; keep at the single site and flag for human review.</p></details>
+    <details class="df-sites"><summary>Show where it's used (1)</summary>
+      <ul><li><code>app/profile/page.tsx</code> <span class="df-ln">line 30</span></li></ul>
+    </details>
+    <details class="df-chips-wrap"><summary>Exact code</summary>
+      <div class="df-chips"><code class="df-chip">bg-blue-600</code><code class="df-chip">text-blue-600</code></div>
+    </details>
+  </div>
+  <div class="df-cluster" data-cluster="btn-6">
+    <div class="df-cluster-head">
+      <span class="df-count">Used in 1 place</span>
+      <span class="df-tag df-tag-mistake">⚠ looks like a mistake</span>
+    </div>
+    <div class="df-swatch"><button class="inline-flex items-center justify-center gap-2 whitespace-nowrap font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 text-primary-foreground hover:bg-primary/90 h-10 py-2 bg-purple-500 px-12 rounded-none shadow-2xl text-xs" type="button">Button</button></div>
+    <p class="df-desc">Purple background, extra padding, square corners, a heavy shadow and small text</p>
+    <div class="df-proposal">
+      <label>What should we do?</label>
+      <select class="df-select" data-decision="btn-6"><option value="snap-to">✨ New style</option><option value="merge-into">🔁 Replace (it's a duplicate)</option><option value="keep" selected>✋ Keep as-is</option><option value="rename">✏️ Rename</option></select>
+      <input class="df-input" data-target="btn-6"
+             value="" placeholder="name it, e.g. Primary" />
+    </div>
+    <p class="df-plain" data-plain="btn-6"></p>
+    <details class="df-why-wrap"><summary>Why?</summary><p class="df-why">bg-purple-500 + px-12 + rounded-none + text-xs + shadow-2xl is a lone one-off matching no role or other cluster — reads as a copy-paste slip; keep at the call site and flag.</p></details>
+    <details class="df-sites"><summary>Show where it's used (1)</summary>
+      <ul><li><code>app/onboarding/page.tsx</code> <span class="df-ln">line 21</span></li></ul>
+    </details>
+    <details class="df-chips-wrap"><summary>Exact code</summary>
+      <div class="df-chips"><code class="df-chip">bg-purple-500</code><code class="df-chip">px-12</code><code class="df-chip">rounded-none</code><code class="df-chip">shadow-2xl</code><code class="df-chip">text-xs</code></div>
+    </details>
+  </div></div>
+    <details class="df-dynamic"><summary>2 that change depending on context — we won't touch these</summary><ul><li><code>app/checkout/page.tsx</code> <span class="df-ln">line 26</span></li><li><code>app/settings/page.tsx</code> <span class="df-ln">line 36</span></li></ul></details>
+  </section>
+  <section class="df-component">
+    <h2>Card <span class="df-sub">2 different looks across 5 places</span></h2>
+    <div class="df-grid">
+  <div class="df-cluster" data-cluster="card-1">
+    <div class="df-cluster-head">
+      <span class="df-count">Used in 3 places</span>
+      
+    </div>
+    <div class="df-swatch"><div class="rounded-lg border bg-card text-card-foreground shadow-md" style="width:11rem"><div style="padding:1rem">elevated</div></div></div>
+    <p class="df-desc">A drop shadow</p>
+    <div class="df-proposal">
+      <label>What should we do?</label>
+      <select class="df-select" data-decision="card-1"><option value="snap-to">✨ New style</option><option value="merge-into" selected>🔁 Replace (it's a duplicate)</option><option value="keep">✋ Keep as-is</option><option value="rename">✏️ Rename</option></select>
+      <input class="df-input" data-target="card-1"
+             value="elevated" placeholder="name it, e.g. Primary" />
+    </div>
+    <p class="df-plain" data-plain="card-1"></p>
+    <details class="df-why-wrap"><summary>Why?</summary><p class="df-why">The lone shadow-md override is pixel-identical to the existing 'elevated' variant (classes: shadow-md) — it's a hand-rolled duplicate, fold it into the named variant.</p></details>
+    <details class="df-sites"><summary>Show where it's used (3)</summary>
+      <ul><li><code>app/billing/page.tsx</code> <span class="df-ln">line 11</span></li><li><code>app/dashboard/page.tsx</code> <span class="df-ln">line 11</span></li><li><code>app/profile/page.tsx</code> <span class="df-ln">line 12</span></li></ul>
+    </details>
+    <details class="df-chips-wrap"><summary>Exact code</summary>
+      <div class="df-chips"><code class="df-chip">shadow-md</code></div>
+    </details>
+  </div>
+  <div class="df-cluster" data-cluster="card-2">
+    <div class="df-cluster-head">
+      <span class="df-count">Used in 2 places</span>
+      
+    </div>
+    <div class="df-swatch"><div class="rounded-lg border bg-card text-card-foreground border-blue-500 shadow-lg" style="width:11rem"><div style="padding:1rem">accent</div></div></div>
+    <p class="df-desc">Blue border and a drop shadow</p>
+    <div class="df-proposal">
+      <label>What should we do?</label>
+      <select class="df-select" data-decision="card-2"><option value="snap-to" selected>✨ New style</option><option value="merge-into">🔁 Replace (it's a duplicate)</option><option value="keep">✋ Keep as-is</option><option value="rename">✏️ Rename</option></select>
+      <input class="df-input" data-target="card-2"
+             value="accent" placeholder="name it, e.g. Primary" />
+    </div>
+    <p class="df-plain" data-plain="card-2"></p>
+    <details class="df-why-wrap"><summary>Why?</summary><p class="df-why">border-blue-500 + shadow-lg is a genuinely new look used at 2 sites that matches no existing variant; promote it to a role-named 'accent' variant rather than leaving the blue border drifting.</p></details>
+    <details class="df-sites"><summary>Show where it's used (2)</summary>
+      <ul><li><code>app/page.tsx</code> <span class="df-ln">line 10</span></li><li><code>app/settings/page.tsx</code> <span class="df-ln">line 14</span></li></ul>
+    </details>
+    <details class="df-chips-wrap"><summary>Exact code</summary>
+      <div class="df-chips"><code class="df-chip">border-blue-500</code><code class="df-chip">shadow-lg</code></div>
+    </details>
+  </div></div>
+    
+  </section>
+  <section class="df-component">
+    <h2>Badge <span class="df-sub">2 different looks across 4 places</span></h2>
+    <div class="df-grid">
+  <div class="df-cluster" data-cluster="badge-1">
+    <div class="df-cluster-head">
+      <span class="df-count">Used in 2 places</span>
+      
+    </div>
+    <div class="df-swatch"><span class="inline-flex items-center border px-2.5 py-0.5 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-ring border-transparent hover:bg-primary/80 bg-gray-100 rounded-sm text-gray-600">muted</span></div>
+    <p class="df-desc">Gray background, rounded corners and gray text</p>
+    <div class="df-proposal">
+      <label>What should we do?</label>
+      <select class="df-select" data-decision="badge-1"><option value="snap-to" selected>✨ New style</option><option value="merge-into">🔁 Replace (it's a duplicate)</option><option value="keep">✋ Keep as-is</option><option value="rename">✏️ Rename</option></select>
+      <input class="df-input" data-target="badge-1"
+             value="muted" placeholder="name it, e.g. Primary" />
+    </div>
+    <p class="df-plain" data-plain="badge-1"></p>
+    <details class="df-why-wrap"><summary>Why?</summary><p class="df-why">bg-gray-100/text-gray-600 is a legible low-emphasis look repeated across 2 sites with no theme-token equivalent among existing variants, so it earns a semantic 'muted' variant.</p></details>
+    <details class="df-sites"><summary>Show where it's used (2)</summary>
+      <ul><li><code>app/billing/page.tsx</code> <span class="df-ln">line 16</span></li><li><code>app/settings/page.tsx</code> <span class="df-ln">line 19</span></li></ul>
+    </details>
+    <details class="df-chips-wrap"><summary>Exact code</summary>
+      <div class="df-chips"><code class="df-chip">bg-gray-100</code><code class="df-chip">rounded-sm</code><code class="df-chip">text-gray-600</code></div>
+    </details>
+  </div>
+  <div class="df-cluster" data-cluster="badge-2">
+    <div class="df-cluster-head">
+      <span class="df-count">Used in 2 places</span>
+      
+    </div>
+    <div class="df-swatch"><span class="inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-ring border-transparent hover:bg-primary/80 bg-green-100 text-green-800">success</span></div>
+    <p class="df-desc">Green background and green text</p>
+    <div class="df-proposal">
+      <label>What should we do?</label>
+      <select class="df-select" data-decision="badge-2"><option value="snap-to" selected>✨ New style</option><option value="merge-into">🔁 Replace (it's a duplicate)</option><option value="keep">✋ Keep as-is</option><option value="rename">✏️ Rename</option></select>
+      <input class="df-input" data-target="badge-2"
+             value="success" placeholder="name it, e.g. Primary" />
+    </div>
+    <p class="df-plain" data-plain="badge-2"></p>
+    <details class="df-why-wrap"><summary>Why?</summary><p class="df-why">bg-green-100/text-green-800 is the conventional high-contrast success pairing used in 2 places and no existing variant covers green, so it becomes a 'success' variant named by role not color.</p></details>
+    <details class="df-sites"><summary>Show where it's used (2)</summary>
+      <ul><li><code>app/dashboard/page.tsx</code> <span class="df-ln">line 16</span></li><li><code>app/profile/page.tsx</code> <span class="df-ln">line 17</span></li></ul>
+    </details>
+    <details class="df-chips-wrap"><summary>Exact code</summary>
+      <div class="df-chips"><code class="df-chip">bg-green-100</code><code class="df-chip">text-green-800</code></div>
+    </details>
+  </div></div>
+    
+  </section>
+    <section class="df-component">
+      <h2>Input <span class="df-clean">✓ already consistent</span></h2>
+      <p class="df-sub">Every Input uses the standard style — nothing to clean up here.</p>
+    </section></main>
+
+<div id="dock">
+  <div id="dock-bar">
+    <b>Your choices</b>
+    <span class="hint">updates as you pick — this is what gets cleaned up</span>
+    <button class="df-act" id="download">⬇ Download my choices</button>
+    <button id="copy">Copy</button>
+  </div>
+  <pre id="changeset">[
+  {
+    &quot;component&quot;: &quot;Button&quot;,
+    &quot;clusters&quot;: [
+      {
+        &quot;cluster_id&quot;: &quot;btn-1&quot;,
+        &quot;decision&quot;: &quot;snap-to&quot;,
+        &quot;target_variant&quot;: &quot;brand&quot;,
+        &quot;folded_utils&quot;: [
+          &quot;bg-blue-600&quot;,
+          &quot;hover:bg-blue-700&quot;,
+          &quot;rounded-full&quot;,
+          &quot;shadow-lg&quot;,
+          &quot;text-white&quot;
+        ],
+        &quot;kept_utils&quot;: [],
+        &quot;call_sites&quot;: [
+          {
+            &quot;file&quot;: &quot;app/billing/page.tsx&quot;,
+            &quot;line&quot;: 21,
+            &quot;variant&quot;: &quot;default&quot;,
+            &quot;size&quot;: &quot;default&quot;
+          },
+          {
+            &quot;file&quot;: &quot;app/checkout/page.tsx&quot;,
+            &quot;line&quot;: 16,
+            &quot;variant&quot;: &quot;default&quot;,
+            &quot;size&quot;: &quot;default&quot;
+          },
+          {
+            &quot;file&quot;: &quot;app/dashboard/page.tsx&quot;,
+            &quot;line&quot;: 21,
+            &quot;variant&quot;: &quot;default&quot;,
+            &quot;size&quot;: &quot;default&quot;
+          },
+          {
+            &quot;file&quot;: &quot;app/page.tsx&quot;,
+            &quot;line&quot;: 18,
+            &quot;variant&quot;: &quot;default&quot;,
+            &quot;size&quot;: &quot;default&quot;
+          }
+        ]
+      },
+      {
+        &quot;cluster_id&quot;: &quot;btn-2&quot;,
+        &quot;decision&quot;: &quot;snap-to&quot;,
+        &quot;target_variant&quot;: &quot;success&quot;,
+        &quot;folded_utils&quot;: [
+          &quot;bg-green-600&quot;,
+          &quot;hover:bg-green-700&quot;,
+          &quot;text-white&quot;
+        ],
+        &quot;kept_utils&quot;: [],
+        &quot;call_sites&quot;: [
+          {
+            &quot;file&quot;: &quot;app/onboarding/page.tsx&quot;,
+            &quot;line&quot;: 16,
+            &quot;variant&quot;: &quot;default&quot;,
+            &quot;size&quot;: &quot;default&quot;
+          },
+          {
+            &quot;file&quot;: &quot;app/page.tsx&quot;,
+            &quot;line&quot;: 23,
+            &quot;variant&quot;: &quot;default&quot;,
+            &quot;size&quot;: &quot;default&quot;
+          },
+          {
+            &quot;file&quot;: &quot;app/profile/page.tsx&quot;,
+            &quot;line&quot;: 25,
+            &quot;variant&quot;: &quot;default&quot;,
+            &quot;size&quot;: &quot;default&quot;
+          }
+        ]
+      },
+      {
+        &quot;cluster_id&quot;: &quot;btn-3&quot;,
+        &quot;decision&quot;: &quot;merge-into&quot;,
+        &quot;target_variant&quot;: &quot;destructive&quot;,
+        &quot;folded_utils&quot;: [
+          &quot;bg-red-600&quot;,
+          &quot;hover:bg-red-700&quot;,
+          &quot;text-white&quot;
+        ],
+        &quot;kept_utils&quot;: [],
+        &quot;call_sites&quot;: [
+          {
+            &quot;file&quot;: &quot;app/billing/page.tsx&quot;,
+            &quot;line&quot;: 26,
+            &quot;variant&quot;: &quot;default&quot;,
+            &quot;size&quot;: &quot;default&quot;
+          },
+          {
+            &quot;file&quot;: &quot;app/dashboard/page.tsx&quot;,
+            &quot;line&quot;: 26,
+            &quot;variant&quot;: &quot;default&quot;,
+            &quot;size&quot;: &quot;default&quot;
+          }
+        ]
+      },
+      {
+        &quot;cluster_id&quot;: &quot;btn-4&quot;,
+        &quot;decision&quot;: &quot;merge-into&quot;,
+        &quot;target_variant&quot;: &quot;btn-1&quot;,
+        &quot;folded_utils&quot;: [
+          &quot;bg-[#2563eb]&quot;,
+          &quot;hover:bg-[#1d4ed8]&quot;,
+          &quot;rounded-full&quot;,
+          &quot;shadow-lg&quot;,
+          &quot;text-white&quot;
+        ],
+        &quot;kept_utils&quot;: [],
+        &quot;call_sites&quot;: [
+          {
+            &quot;file&quot;: &quot;app/settings/page.tsx&quot;,
+            &quot;line&quot;: 26,
+            &quot;variant&quot;: &quot;default&quot;,
+            &quot;size&quot;: &quot;default&quot;
+          }
+        ]
+      },
+      {
+        &quot;cluster_id&quot;: &quot;btn-5&quot;,
+        &quot;decision&quot;: &quot;keep&quot;,
+        &quot;target_variant&quot;: &quot;&quot;,
+        &quot;folded_utils&quot;: [
+          &quot;bg-blue-600&quot;,
+          &quot;text-blue-600&quot;
+        ],
+        &quot;kept_utils&quot;: [],
+        &quot;call_sites&quot;: [
+          {
+            &quot;file&quot;: &quot;app/profile/page.tsx&quot;,
+            &quot;line&quot;: 30,
+            &quot;variant&quot;: &quot;default&quot;,
+            &quot;size&quot;: &quot;default&quot;
+          }
+        ]
+      },
+      {
+        &quot;cluster_id&quot;: &quot;btn-6&quot;,
+        &quot;decision&quot;: &quot;keep&quot;,
+        &quot;target_variant&quot;: &quot;&quot;,
+        &quot;folded_utils&quot;: [
+          &quot;bg-purple-500&quot;,
+          &quot;px-12&quot;,
+          &quot;rounded-none&quot;,
+          &quot;shadow-2xl&quot;,
+          &quot;text-xs&quot;
+        ],
+        &quot;kept_utils&quot;: [],
+        &quot;call_sites&quot;: [
+          {
+            &quot;file&quot;: &quot;app/onboarding/page.tsx&quot;,
+            &quot;line&quot;: 21,
+            &quot;variant&quot;: &quot;default&quot;,
+            &quot;size&quot;: &quot;default&quot;
+          }
+        ]
+      }
+    ]
+  },
+  {
+    &quot;component&quot;: &quot;Card&quot;,
+    &quot;clusters&quot;: [
+      {
+        &quot;cluster_id&quot;: &quot;card-1&quot;,
+        &quot;decision&quot;: &quot;merge-into&quot;,
+        &quot;target_variant&quot;: &quot;elevated&quot;,
+        &quot;folded_utils&quot;: [
+          &quot;shadow-md&quot;
+        ],
+        &quot;kept_utils&quot;: [],
+        &quot;call_sites&quot;: [
+          {
+            &quot;file&quot;: &quot;app/billing/page.tsx&quot;,
+            &quot;line&quot;: 11,
+            &quot;variant&quot;: &quot;default&quot;,
+            &quot;size&quot;: null
+          },
+          {
+            &quot;file&quot;: &quot;app/dashboard/page.tsx&quot;,
+            &quot;line&quot;: 11,
+            &quot;variant&quot;: &quot;default&quot;,
+            &quot;size&quot;: null
+          },
+          {
+            &quot;file&quot;: &quot;app/profile/page.tsx&quot;,
+            &quot;line&quot;: 12,
+            &quot;variant&quot;: &quot;default&quot;,
+            &quot;size&quot;: null
+          }
+        ]
+      },
+      {
+        &quot;cluster_id&quot;: &quot;card-2&quot;,
+        &quot;decision&quot;: &quot;snap-to&quot;,
+        &quot;target_variant&quot;: &quot;accent&quot;,
+        &quot;folded_utils&quot;: [
+          &quot;border-blue-500&quot;,
+          &quot;shadow-lg&quot;
+        ],
+        &quot;kept_utils&quot;: [],
+        &quot;call_sites&quot;: [
+          {
+            &quot;file&quot;: &quot;app/page.tsx&quot;,
+            &quot;line&quot;: 10,
+            &quot;variant&quot;: &quot;default&quot;,
+            &quot;size&quot;: null
+          },
+          {
+            &quot;file&quot;: &quot;app/settings/page.tsx&quot;,
+            &quot;line&quot;: 14,
+            &quot;variant&quot;: &quot;default&quot;,
+            &quot;size&quot;: null
+          }
+        ]
+      }
+    ]
+  },
+  {
+    &quot;component&quot;: &quot;Badge&quot;,
+    &quot;clusters&quot;: [
+      {
+        &quot;cluster_id&quot;: &quot;badge-1&quot;,
+        &quot;decision&quot;: &quot;snap-to&quot;,
+        &quot;target_variant&quot;: &quot;muted&quot;,
+        &quot;folded_utils&quot;: [
+          &quot;bg-gray-100&quot;,
+          &quot;rounded-sm&quot;,
+          &quot;text-gray-600&quot;
+        ],
+        &quot;kept_utils&quot;: [],
+        &quot;call_sites&quot;: [
+          {
+            &quot;file&quot;: &quot;app/billing/page.tsx&quot;,
+            &quot;line&quot;: 16,
+            &quot;variant&quot;: &quot;default&quot;,
+            &quot;size&quot;: null
+          },
+          {
+            &quot;file&quot;: &quot;app/settings/page.tsx&quot;,
+            &quot;line&quot;: 19,
+            &quot;variant&quot;: &quot;default&quot;,
+            &quot;size&quot;: null
+          }
+        ]
+      },
+      {
+        &quot;cluster_id&quot;: &quot;badge-2&quot;,
+        &quot;decision&quot;: &quot;snap-to&quot;,
+        &quot;target_variant&quot;: &quot;success&quot;,
+        &quot;folded_utils&quot;: [
+          &quot;bg-green-100&quot;,
+          &quot;text-green-800&quot;
+        ],
+        &quot;kept_utils&quot;: [],
+        &quot;call_sites&quot;: [
+          {
+            &quot;file&quot;: &quot;app/dashboard/page.tsx&quot;,
+            &quot;line&quot;: 16,
+            &quot;variant&quot;: &quot;default&quot;,
+            &quot;size&quot;: null
+          },
+          {
+            &quot;file&quot;: &quot;app/profile/page.tsx&quot;,
+            &quot;line&quot;: 17,
+            &quot;variant&quot;: &quot;default&quot;,
+            &quot;size&quot;: null
+          }
+        ]
+      }
+    ]
+  }
+]</pre>
+</div>
+
+<script>
+  const MODEL = [{"component":"Button","clusters":[{"cluster_id":"btn-1","folded_utils":["bg-blue-600","hover:bg-blue-700","rounded-full","shadow-lg","text-white"],"kept_utils":[],"call_sites":[{"file":"app/billing/page.tsx","line":21,"variant":"default","size":"default"},{"file":"app/checkout/page.tsx","line":16,"variant":"default","size":"default"},{"file":"app/dashboard/page.tsx","line":21,"variant":"default","size":"default"},{"file":"app/page.tsx","line":18,"variant":"default","size":"default"}]},{"cluster_id":"btn-2","folded_utils":["bg-green-600","hover:bg-green-700","text-white"],"kept_utils":[],"call_sites":[{"file":"app/onboarding/page.tsx","line":16,"variant":"default","size":"default"},{"file":"app/page.tsx","line":23,"variant":"default","size":"default"},{"file":"app/profile/page.tsx","line":25,"variant":"default","size":"default"}]},{"cluster_id":"btn-3","folded_utils":["bg-red-600","hover:bg-red-700","text-white"],"kept_utils":[],"call_sites":[{"file":"app/billing/page.tsx","line":26,"variant":"default","size":"default"},{"file":"app/dashboard/page.tsx","line":26,"variant":"default","size":"default"}]},{"cluster_id":"btn-4","folded_utils":["bg-[#2563eb]","hover:bg-[#1d4ed8]","rounded-full","shadow-lg","text-white"],"kept_utils":[],"call_sites":[{"file":"app/settings/page.tsx","line":26,"variant":"default","size":"default"}]},{"cluster_id":"btn-5","folded_utils":["bg-blue-600","text-blue-600"],"kept_utils":[],"call_sites":[{"file":"app/profile/page.tsx","line":30,"variant":"default","size":"default"}]},{"cluster_id":"btn-6","folded_utils":["bg-purple-500","px-12","rounded-none","shadow-2xl","text-xs"],"kept_utils":[],"call_sites":[{"file":"app/onboarding/page.tsx","line":21,"variant":"default","size":"default"}]}]},{"component":"Card","clusters":[{"cluster_id":"card-1","folded_utils":["shadow-md"],"kept_utils":[],"call_sites":[{"file":"app/billing/page.tsx","line":11,"variant":"default","size":null},{"file":"app/dashboard/page.tsx","line":11,"variant":"default","size":null},{"file":"app/profile/page.tsx","line":12,"variant":"default","size":null}]},{"cluster_id":"card-2","folded_utils":["border-blue-500","shadow-lg"],"kept_utils":[],"call_sites":[{"file":"app/page.tsx","line":10,"variant":"default","size":null},{"file":"app/settings/page.tsx","line":14,"variant":"default","size":null}]}]},{"component":"Badge","clusters":[{"cluster_id":"badge-1","folded_utils":["bg-gray-100","rounded-sm","text-gray-600"],"kept_utils":[],"call_sites":[{"file":"app/billing/page.tsx","line":16,"variant":"default","size":null},{"file":"app/settings/page.tsx","line":19,"variant":"default","size":null}]},{"cluster_id":"badge-2","folded_utils":["bg-green-100","text-green-800"],"kept_utils":[],"call_sites":[{"file":"app/dashboard/page.tsx","line":16,"variant":"default","size":null},{"file":"app/profile/page.tsx","line":17,"variant":"default","size":null}]}]}];
+  // cluster_id -> { component, count } for the adaptive plain-English sentence.
+  const META = {};
+  MODEL.forEach(function(comp) {
+    comp.clusters.forEach(function(cl) {
+      META[cl.cluster_id] = { component: comp.component, count: cl.call_sites.length };
+    });
+  });
+  function buildChangeset() {
+    return MODEL.map(function(comp) {
+      return {
+        component: comp.component,
+        clusters: comp.clusters.map(function(cl) {
+          const dsel = document.querySelector('[data-decision="' + cl.cluster_id + '"]');
+          const tinp = document.querySelector('[data-target="' + cl.cluster_id + '"]');
+          return {
+            cluster_id: cl.cluster_id,
+            decision: dsel ? dsel.value : 'keep',
+            target_variant: tinp ? tinp.value : '',
+            folded_utils: cl.folded_utils,
+            kept_utils: cl.kept_utils,
+            call_sites: cl.call_sites
+          };
+        })
+      };
+    });
+  }
+  function refresh() {
+    document.getElementById('changeset').textContent = JSON.stringify(buildChangeset(), null, 2);
+  }
+  function plainSentence(id, decision, target) {
+    const m = META[id] || { component: 'element', count: 0 };
+    const here = m.count + ' place' + (m.count === 1 ? '' : 's');
+    const name = (target || '').trim();
+    if (decision === 'snap-to')
+      return name
+        ? 'Create a new “' + name + '” style and use it in all ' + here + '.'
+        : 'Make this a new reusable style — name it on the right.';
+    if (decision === 'merge-into')
+      return name
+        ? 'Replace these ' + here + ' with the existing “' + name + '” style.'
+        : 'These are duplicates — type which style to replace them with.';
+    if (decision === 'rename')
+      return name ? 'Rename this style to “' + name + '”.' : 'Keep it, but give it a name on the right.';
+    return 'Leave these ' + here + ' exactly as they are.';
+  }
+  function syncRow(el) {
+    const id = el.getAttribute('data-decision') || el.getAttribute('data-target');
+    const card = document.querySelector('[data-cluster="' + id + '"]');
+    const dsel = document.querySelector('[data-decision="' + id + '"]');
+    const tinp = document.querySelector('[data-target="' + id + '"]');
+    const plain = document.querySelector('[data-plain="' + id + '"]');
+    if (!dsel) return;
+    const decision = dsel.value;
+    if (card) card.classList.toggle('df-merge', decision === 'merge-into');
+    if (tinp) {
+      const off = decision === 'keep';
+      tinp.disabled = off;
+      tinp.style.opacity = off ? '0.35' : '1';
+      tinp.placeholder =
+        decision === 'merge-into' ? 'replace with… e.g. brand' : 'name it… e.g. Primary';
+    }
+    if (plain) plain.textContent = plainSentence(id, decision, tinp ? tinp.value : '');
+  }
+  document.querySelectorAll('[data-decision],[data-target]').forEach(function(el) {
+    el.addEventListener('input', function() { syncRow(el); refresh(); });
+    syncRow(el);
+  });
+  document.getElementById('download').addEventListener('click', function() {
+    const blob = new Blob([JSON.stringify(buildChangeset(), null, 2)], { type: 'application/json' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'changeset.json';
+    a.click();
+  });
+  document.getElementById('copy').addEventListener('click', function() {
+    navigator.clipboard.writeText(JSON.stringify(buildChangeset(), null, 2));
+  });
+  refresh();
+</script>
+</body>
+</html>

@@ -14,6 +14,7 @@
 import { twMerge } from "tailwind-merge"
 
 import type { Cluster, ComponentReport } from "../cli/types.ts"
+import { utilityCore } from "../cli/classify.ts"
 import type { ClusterProposal, EmitItem } from "./types.ts"
 import { buildChangeset } from "./changeset.ts"
 
@@ -59,14 +60,86 @@ function renderSwatch(component: string, classStr: string, label: string): strin
   return `<div class="${c}">${l}</div>`
 }
 
-const DECISIONS = ["snap-to", "keep", "rename", "merge-into"] as const
+// Plain-English labels for each decision. The VALUE stays machine-readable
+// (it's what changeset.json + the refactor step consume); only the text a human
+// reads changes.
+const DECISIONS: { value: string; label: string }[] = [
+  { value: "snap-to", label: "✨ Save as a new reusable style" },
+  { value: "merge-into", label: "🔗 It's a duplicate — combine it" },
+  { value: "rename", label: "✏️ Keep, but give it a name" },
+  { value: "keep", label: "✋ Leave this one alone" },
+]
 
 function decisionSelect(p: ClusterProposal | undefined, clusterId: string): string {
   const cur = p?.decision ?? "keep"
   const opts = DECISIONS.map(
-    (d) => `<option value="${d}"${d === cur ? " selected" : ""}>${d}</option>`,
+    (d) =>
+      `<option value="${d.value}"${d.value === cur ? " selected" : ""}>${d.label}</option>`,
   ).join("")
   return `<select class="df-select" data-decision="${clusterId}">${opts}</select>`
+}
+
+/** Translate one Tailwind class into a plain-English phrase (or null to skip). */
+function humanizeToken(token: string): string | null {
+  const core = utilityCore(token)
+  const colorOf = (s: string): string | null => {
+    if (s.startsWith("[")) return "a custom color"
+    const m = s.match(/^([a-z]+)-\d+$/)
+    if (m) return m[1] ?? null
+    if (["white", "black"].includes(s)) return s
+    return null
+  }
+  // background
+  if (core === "bg-white" || core === "bg-black") return `${core.slice(3)} background`
+  if (core.startsWith("bg-")) {
+    const c = colorOf(core.slice(3))
+    return c ? `${c} background` : "a background color"
+  }
+  // text color / size
+  if (core.startsWith("text-")) {
+    const rest = core.slice(5)
+    if (["xs", "sm"].includes(rest)) return "small text"
+    if (["lg", "xl", "2xl", "3xl"].includes(rest)) return "large text"
+    const c = colorOf(rest) ?? (["white", "black"].includes(rest) ? rest : null)
+    return c ? `${c} text` : null
+  }
+  if (core.startsWith("border-")) {
+    const c = colorOf(core.slice(7))
+    return c ? `${c} border` : "a colored border"
+  }
+  // corners
+  if (core === "rounded-full") return "pill-shaped"
+  if (core === "rounded-none") return "square corners"
+  if (core.startsWith("rounded")) return "rounded corners"
+  // shadow
+  if (core === "shadow-2xl") return "a heavy shadow"
+  if (core === "shadow-none") return "no shadow"
+  if (core.startsWith("shadow")) return "a drop shadow"
+  // misc appearance
+  if (core.startsWith("font-")) return "bold text"
+  if (/^p[xytrbl]?-/.test(core)) return "extra padding"
+  if (core.startsWith("opacity-")) return "see-through"
+  if (core.startsWith("ring")) return "a focus ring"
+  return null
+}
+
+/** A plain-English one-liner describing a cluster's look. */
+function humanize(utils: string[]): string {
+  const seen = new Set<string>()
+  const phrases: string[] = []
+  for (const u of utils) {
+    const p = humanizeToken(u)
+    if (p && !seen.has(p)) {
+      seen.add(p)
+      phrases.push(p)
+    }
+  }
+  if (phrases.length === 0) return "a custom look"
+  const joined =
+    phrases.length === 1
+      ? phrases[0]!
+      : phrases.slice(0, -1).join(", ") + " and " + phrases[phrases.length - 1]
+  return joined.charAt(0).toUpperCase() + joined.slice(1)
 }
 
 function clusterCard(
@@ -86,41 +159,42 @@ function clusterCard(
   const sites = cluster.call_sites
     .map((s) => {
       const keep = s.layout_utils.length
-        ? ` <span class="df-keep">keep ${esc(s.layout_utils.join(" "))}</span>`
+        ? ` <span class="df-keep">+ position kept (${esc(s.layout_utils.join(" "))})</span>`
         : ""
-      const vs =
-        s.variant || s.size
-          ? ` <span class="df-vs">${esc(s.variant ?? "—")}/${esc(s.size ?? "—")}</span>`
-          : ""
-      return `<li><code>${esc(s.file)}:${s.line}</code>${vs}${keep}</li>`
+      return `<li><code>${esc(s.file)}</code> <span class="df-ln">line ${s.line}</span>${keep}</li>`
     })
     .join("")
 
-  const outlier = cluster.is_outlier
-    ? `<span class="df-tag df-tag-outlier">outlier</span>`
-    : ""
+  const description = humanize(cluster.appearance_utils)
+  const usedIn = `Used in ${cluster.site_count} place${cluster.site_count === 1 ? "" : "s"}`
+  const onceTag =
+    cluster.site_count === 1 && !proposal?.is_mistake
+      ? `<span class="df-tag df-tag-outlier">only here</span>`
+      : ""
   const mistake = proposal?.is_mistake
-    ? `<span class="df-tag df-tag-mistake">likely mistake</span>`
+    ? `<span class="df-tag df-tag-mistake">⚠ looks like a mistake</span>`
     : ""
 
   return `
   <div class="df-cluster" data-cluster="${cluster.cluster_id}">
     <div class="df-cluster-head">
-      <span class="df-cid">${cluster.cluster_id}</span>
-      <span class="df-count">×${cluster.site_count}</span>
-      ${outlier}${mistake}
+      <span class="df-count">${usedIn}</span>
+      ${onceTag}${mistake}
     </div>
     <div class="df-swatch">${swatch}</div>
-    <div class="df-chips">${chips}</div>
+    <p class="df-desc">${esc(description)}</p>
     <div class="df-proposal">
-      <label>fold as</label>
+      <label>What should we do?</label>
       ${decisionSelect(proposal, cluster.cluster_id)}
       <input class="df-input" data-target="${cluster.cluster_id}"
-             value="${esc(proposal?.target_variant ?? "")}" placeholder="variant name / cluster" />
+             value="${esc(proposal?.target_variant ?? "")}" placeholder="name it, e.g. Primary" />
     </div>
     ${proposal?.rationale ? `<p class="df-why">${esc(proposal.rationale)}</p>` : ""}
-    <details class="df-sites"><summary>${cluster.site_count} call site${cluster.site_count === 1 ? "" : "s"}</summary>
+    <details class="df-sites"><summary>Show where it's used (${cluster.site_count})</summary>
       <ul>${sites}</ul>
+    </details>
+    <details class="df-chips-wrap"><summary>Exact code</summary>
+      <div class="df-chips">${chips}</div>
     </details>
   </div>`
 }
@@ -132,8 +206,8 @@ function componentSection(item: EmitItem): string {
   if (report.clusters.length === 0) {
     return `
     <section class="df-component">
-      <h2>${esc(report.component)} <span class="df-clean">✓ clean — no appearance drift</span></h2>
-      <p class="df-sub">${report.summary.clean} layout-only override${report.summary.clean === 1 ? "" : "s"}, nothing to fold.</p>
+      <h2>${esc(report.component)} <span class="df-clean">✓ already consistent</span></h2>
+      <p class="df-sub">Every ${esc(report.component)} uses the standard style — nothing to clean up here.</p>
     </section>`
   }
 
@@ -142,14 +216,16 @@ function componentSection(item: EmitItem): string {
     .join("")
 
   const dyn = report.dynamic.length
-    ? `<details class="df-dynamic"><summary>${report.dynamic.length} dynamic / untouchable (left as-is)</summary><ul>${report.dynamic
-        .map((d) => `<li><code>${esc(d.file)}:${d.line}</code> <code class="df-raw">${esc(d.raw)}</code></li>`)
+    ? `<details class="df-dynamic"><summary>${report.dynamic.length} that change depending on context — we won't touch these</summary><ul>${report.dynamic
+        .map((d) => `<li><code>${esc(d.file)}</code> <span class="df-ln">line ${d.line}</span></li>`)
         .join("")}</ul></details>`
     : ""
 
+  const lookWord = report.summary.cluster_count === 1 ? "look" : "different looks"
+  const placeWord = report.summary.drift_sites === 1 ? "place" : "places"
   return `
   <section class="df-component">
-    <h2>${esc(report.component)} <span class="df-sub">${report.summary.cluster_count} clusters · ${report.summary.drift_sites} drift sites</span></h2>
+    <h2>${esc(report.component)} <span class="df-sub">${report.summary.cluster_count} ${lookWord} across ${report.summary.drift_sites} ${placeWord}</span></h2>
     <div class="df-grid">${cards}</div>
     ${dyn}
   </section>`
@@ -188,8 +264,13 @@ export function renderDesignSystemHtml(items: EmitItem[]): string {
            background:#0b0d12ee; backdrop-filter:blur(6px); z-index:20; }
   header h1 { margin:0; font-size:20px; letter-spacing:-.01em; }
   header .tag { color:#7c8295; font-weight:400; }
-  header p { margin:6px 0 0; color:#9aa1b2; }
+  header p { margin:6px 0 0; color:#9aa1b2; max-width:760px; }
   .stat { color:#5ed6a4; font-weight:600; }
+  .how { margin:12px 0 0; display:flex; flex-wrap:wrap; gap:14px; align-items:baseline;
+         font-size:12.5px; color:#aeb4c4; }
+  .how b { color:#e7e9ee; }
+  .how span { background:#11141d; border:1px solid #1f2435; border-radius:7px; padding:4px 9px; }
+  .how em { color:#cdd3e1; font-style:normal; font-weight:600; }
   main { max-width:1180px; margin:0 auto; padding:24px 32px 240px; }
   .df-component { margin:36px 0; }
   .df-component h2 { font-size:17px; margin:0 0 14px; border-left:3px solid #3b82f6; padding-left:10px; }
@@ -199,20 +280,24 @@ export function renderDesignSystemHtml(items: EmitItem[]): string {
   .df-cluster { background:#11141d; border:1px solid #1f2435; border-radius:12px; padding:14px; }
   .df-cluster-head { display:flex; align-items:center; gap:8px; margin-bottom:10px; }
   .df-cid { font-family:ui-monospace,monospace; font-weight:700; color:#cdd3e1; }
-  .df-count { color:#7c8295; font-size:12px; }
+  .df-count { color:#cdd3e1; font-size:13px; font-weight:600; }
   .df-tag { font-size:11px; padding:1px 7px; border-radius:999px; font-weight:600; }
   .df-tag-outlier { background:#3a2a12; color:#f0b765; }
   .df-tag-mistake { background:#3a1620; color:#f08aa6; }
   .df-swatch { background:#f4f4f5; border-radius:8px; padding:18px; display:flex;
                align-items:center; justify-content:center; min-height:64px; margin-bottom:10px; }
-  .df-chips { display:flex; flex-wrap:wrap; gap:5px; margin-bottom:12px; }
+  .df-desc { margin:0 0 12px; font-size:13.5px; color:#dfe3ec; font-weight:500; }
+  .df-chips-wrap { margin-top:10px; }
+  .df-chips-wrap summary { cursor:pointer; color:#7c8295; font-size:12px; }
+  .df-chips { display:flex; flex-wrap:wrap; gap:5px; margin-top:8px; }
   .df-chip { font-family:ui-monospace,monospace; font-size:11px; background:#1a1f2e;
              color:#9fb4e8; padding:2px 7px; border-radius:6px; }
   .df-proposal { display:flex; align-items:center; gap:7px; flex-wrap:wrap; }
-  .df-proposal label { color:#7c8295; font-size:12px; }
+  .df-proposal label { color:#cdd3e1; font-size:12.5px; font-weight:600; width:100%; }
   .df-select, .df-input { background:#0d1018; color:#e7e9ee; border:1px solid #2a3147;
-             border-radius:7px; padding:5px 8px; font-size:13px; }
-  .df-input { flex:1; min-width:120px; font-family:ui-monospace,monospace; }
+             border-radius:7px; padding:6px 9px; font-size:13px; }
+  .df-select { flex:1; min-width:200px; }
+  .df-input { flex:1; min-width:120px; }
   .df-select:focus, .df-input:focus { outline:none; border-color:#3b82f6; }
   .df-why { color:#9aa1b2; font-size:12.5px; margin:10px 0 0; font-style:italic; }
   .df-sites { margin-top:10px; }
@@ -220,9 +305,8 @@ export function renderDesignSystemHtml(items: EmitItem[]): string {
   .df-sites ul, .df-dynamic ul { margin:8px 0 0; padding-left:18px; }
   .df-sites li, .df-dynamic li { margin:3px 0; font-size:12px; color:#aeb4c4; }
   .df-sites code, .df-dynamic code { font-family:ui-monospace,monospace; color:#cdd3e1; }
-  .df-vs { color:#6b7280; }
+  .df-ln { color:#6b7280; }
   .df-keep { color:#5e9c7e; }
-  .df-raw { color:#f0b765; }
   .df-dynamic { margin-top:14px; }
   .df-merge { border-color:#7c4dff !important; }
   /* live changeset dock */
@@ -242,16 +326,22 @@ export function renderDesignSystemHtml(items: EmitItem[]): string {
 </head>
 <body>
 <header>
-  <h1>DriftFold <span class="tag">· design-system.html</span></h1>
-  <p><span class="stat">${totalClusters}</span> drift clusters across <span class="stat">${totalSites}</span> overridden call sites. Mark each: snap-to a new variant, merge into an existing one, or keep. Download the changeset to fold them back.</p>
+  <h1>DriftFold <span class="tag">· what your buttons & cards actually look like</span></h1>
+  <p>We scanned your app and found <span class="stat">${totalClusters}</span> slightly-different looks, used in <span class="stat">${totalSites}</span> places. Some are accidental copies of each other. Below, each card is one look — decide what to do with it, then download your choices at the bottom.</p>
+  <div class="how">
+    <b>How to use this:</b>
+    <span>① Look at each style.</span>
+    <span>② Pick an action from the dropdown.</span>
+    <span>③ Hit <em>Download my choices</em> — that file tells DriftFold how to clean up the code.</span>
+  </div>
 </header>
 <main>${sections}</main>
 
 <div id="dock">
   <div id="dock-bar">
-    <b>changeset.json</b>
-    <span class="hint">live — edits above update this</span>
-    <button class="df-act" id="download">⬇ Download changeset.json</button>
+    <b>Your choices</b>
+    <span class="hint">updates as you pick — this is what gets cleaned up</span>
+    <button class="df-act" id="download">⬇ Download my choices</button>
     <button id="copy">Copy</button>
   </div>
   <pre id="changeset">${esc(initial)}</pre>

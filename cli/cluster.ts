@@ -110,6 +110,7 @@ export function buildReport(
   return {
     component,
     cva_export: def.exportName,
+    base: def.base,
     variant_inventory: def.variants,
     default_variants: def.defaultVariants,
     clusters,

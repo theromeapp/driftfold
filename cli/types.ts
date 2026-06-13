@@ -67,6 +67,8 @@ export interface Cluster {
 export interface ComponentReport {
   component: string
   cva_export: string
+  /** the cva base class string — used to render faithful swatches in the emitter */
+  base: string
   /** existing variants the cva already defines — Opus maps clusters onto these */
   variant_inventory: Record<string, Record<string, string>>
   default_variants: Record<string, string>

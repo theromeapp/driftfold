@@ -17,6 +17,12 @@ import path from "node:path"
 import { loadProject, findCvaDefinition, findUsages } from "./discover.ts"
 import { buildReport } from "./cluster.ts"
 import type { ComponentReport } from "./types.ts"
+import { renderDesignSystemHtml } from "../emit/render.ts"
+import { buildChangeset } from "../emit/changeset.ts"
+import { proposeHeuristic } from "../emit/propose-heuristic.ts"
+import type { EmitItem } from "../emit/types.ts"
+
+const DEFAULT_COMPONENTS = ["Button", "Card", "Badge", "Input"]
 
 function usage(): void {
   console.error(
@@ -25,10 +31,14 @@ function usage(): void {
       "",
       "Usage:",
       "  driftfold discover-cluster <Component> [--root <dir>] [--json]",
+      "  driftfold emit [Component...] [--root <dir>]",
       "",
       "Options:",
       "  --root <dir>   target app root (default: fixture)",
       "  --json         emit the full ComponentReport as JSON",
+      "",
+      "emit writes design-system.html + changeset.json (heuristic proposals).",
+      "For Opus-proposed variants, run the workflow: workflow/driftfold-reveal.js",
       "",
     ].join("\n"),
   )
@@ -51,6 +61,18 @@ export function discoverCluster(component: string, root: string): ComponentRepor
   }
   const usages = findUsages(project, component, def, absRoot)
   return buildReport(component, def, usages)
+}
+
+/**
+ * Build EmitItems (report + heuristic proposal) for the given components.
+ * The workflow swaps the heuristic proposal for the Opus one; this is the
+ * deterministic offline path.
+ */
+export function emitItemsHeuristic(components: string[], root: string): EmitItem[] {
+  return components.map((component) => {
+    const report = discoverCluster(component, root)
+    return { report, proposal: proposeHeuristic(report) }
+  })
 }
 
 function printSummary(report: ComponentReport): void {
@@ -93,6 +115,24 @@ function main(): void {
       } else {
         printSummary(report)
       }
+      break
+    }
+    case "emit": {
+      const root = getFlag(rest, "--root") ?? "fixture"
+      const named = rest.filter((a) => !a.startsWith("-") && a !== getFlag(rest, "--root"))
+      const components = named.length ? named : DEFAULT_COMPONENTS
+      const items = emitItemsHeuristic(components, root)
+      const html = renderDesignSystemHtml(items)
+      const changeset = buildChangeset(items)
+      Bun.write("design-system.html", html)
+      Bun.write("changeset.json", JSON.stringify(changeset, null, 2))
+      const clusters = items.reduce((n, i) => n + i.report.clusters.length, 0)
+      const sites = items.reduce((n, i) => n + i.report.summary.drift_sites, 0)
+      console.log(
+        `\n  wrote design-system.html + changeset.json` +
+          `\n  ${clusters} clusters · ${sites} drift sites · ${components.join(", ")}` +
+          `\n  open design-system.html to annotate (heuristic proposals; run the workflow for Opus proposals)\n`,
+      )
       break
     }
     case undefined:

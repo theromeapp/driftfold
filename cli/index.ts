@@ -13,6 +13,7 @@
  */
 
 import path from "node:path"
+import { readFileSync } from "node:fs"
 
 import { loadProject, findCvaDefinition, findUsages } from "./discover.ts"
 import { buildReport } from "./cluster.ts"
@@ -20,7 +21,7 @@ import type { ComponentReport } from "./types.ts"
 import { renderDesignSystemHtml } from "../emit/render.ts"
 import { buildChangeset } from "../emit/changeset.ts"
 import { proposeHeuristic } from "../emit/propose-heuristic.ts"
-import type { EmitItem } from "../emit/types.ts"
+import type { ComponentProposal, EmitItem } from "../emit/types.ts"
 
 const DEFAULT_COMPONENTS = ["Button", "Card", "Badge", "Input"]
 
@@ -31,14 +32,18 @@ function usage(): void {
       "",
       "Usage:",
       "  driftfold discover-cluster <Component> [--root <dir>] [--json]",
-      "  driftfold emit [Component...] [--root <dir>]",
+      "  driftfold emit [Component...] [--root <dir>] [--proposals <file>]",
       "",
       "Options:",
-      "  --root <dir>   target app root (default: fixture)",
-      "  --json         emit the full ComponentReport as JSON",
+      "  --root <dir>        target app root (default: fixture)",
+      "  --json              (discover-cluster) emit the full ComponentReport as JSON",
+      "  --proposals <file>  (emit) ComponentProposal[] JSON from the Opus propose step",
+      "  --out <file>        (emit) HTML output path (default: design-system.html)",
+      "  --changeset <file>  (emit) changeset output path (default: changeset.json)",
       "",
-      "emit writes design-system.html + changeset.json (heuristic proposals).",
-      "For Opus-proposed variants, run the workflow: workflow/driftfold-reveal.js",
+      "emit writes design-system.html + changeset.json. Without --proposals it uses",
+      "the deterministic heuristic; the workflow supplies Opus proposals.",
+      "Workflow (Run 1): workflow/driftfold-reveal.js",
       "",
     ].join("\n"),
   )
@@ -47,6 +52,42 @@ function usage(): void {
 function getFlag(args: string[], name: string): string | undefined {
   const i = args.indexOf(name)
   return i !== -1 ? args[i + 1] : undefined
+}
+
+/**
+ * The judgment-relevant slice of a report, for the workflow's Opus propose step.
+ * This is the exact shape the propose agent reasons over — emit independently
+ * re-discovers the full report, so this projection never has to carry call sites.
+ */
+export interface ProposeInput {
+  component: string
+  has_drift: boolean
+  /** the cva's existing variants, flattened — Opus maps clusters onto these */
+  existing_variants: { group: string; name: string; classes: string }[]
+  clusters: {
+    cluster_id: string
+    appearance_utils: string[]
+    site_count: number
+    is_outlier: boolean
+  }[]
+}
+
+export function toProposeInput(report: ComponentReport): ProposeInput {
+  const existing_variants = Object.entries(report.variant_inventory).flatMap(
+    ([group, keys]) =>
+      Object.entries(keys).map(([name, classes]) => ({ group, name, classes })),
+  )
+  return {
+    component: report.component,
+    has_drift: report.clusters.length > 0,
+    existing_variants,
+    clusters: report.clusters.map((c) => ({
+      cluster_id: c.cluster_id,
+      appearance_utils: c.appearance_utils,
+      site_count: c.site_count,
+      is_outlier: c.is_outlier,
+    })),
+  }
 }
 
 export function discoverCluster(component: string, root: string): ComponentReport {
@@ -64,15 +105,47 @@ export function discoverCluster(component: string, root: string): ComponentRepor
 }
 
 /**
- * Build EmitItems (report + heuristic proposal) for the given components.
- * The workflow swaps the heuristic proposal for the Opus one; this is the
- * deterministic offline path.
+ * Build EmitItems for the given components. Reports are always (re)discovered
+ * deterministically by the CLI — the single source of truth. Proposals come from
+ * `opusProposals` when supplied (the workflow's Opus judgment), falling back to
+ * the deterministic heuristic per-cluster for any cluster Opus didn't cover.
  */
-export function emitItemsHeuristic(components: string[], root: string): EmitItem[] {
+export function emitItems(
+  components: string[],
+  root: string,
+  opusProposals?: ComponentProposal[],
+): EmitItem[] {
+  const byComponent = new Map(
+    (opusProposals ?? []).map((p) => [p.component, p]),
+  )
   return components.map((component) => {
     const report = discoverCluster(component, root)
-    return { report, proposal: proposeHeuristic(report) }
+    const heuristic = proposeHeuristic(report)
+    const opus = byComponent.get(component)
+    if (!opus) return { report, proposal: heuristic }
+
+    // Overlay Opus proposals; fall back to heuristic for any uncovered cluster.
+    const opusById = new Map(opus.proposals.map((p) => [p.cluster_id, p]))
+    const merged = report.clusters.map((c) => {
+      const o = opusById.get(c.cluster_id)
+      if (o) return o
+      return (
+        heuristic.proposals.find((h) => h.cluster_id === c.cluster_id) ?? {
+          cluster_id: c.cluster_id,
+          decision: "keep" as const,
+          target_variant: "",
+          is_mistake: false,
+          rationale: "",
+        }
+      )
+    })
+    return { report, proposal: { component, proposals: merged } }
   })
+}
+
+/** @deprecated use emitItems(components, root) — kept for test back-compat. */
+export function emitItemsHeuristic(components: string[], root: string): EmitItem[] {
+  return emitItems(components, root)
 }
 
 function printSummary(report: ComponentReport): void {
@@ -110,7 +183,9 @@ function main(): void {
       }
       const root = getFlag(rest, "--root") ?? "fixture"
       const report = discoverCluster(component, root)
-      if (rest.includes("--json")) {
+      if (rest.includes("--propose-input")) {
+        console.log(JSON.stringify(toProposeInput(report), null, 2))
+      } else if (rest.includes("--json")) {
         console.log(JSON.stringify(report, null, 2))
       } else {
         printSummary(report)
@@ -119,19 +194,36 @@ function main(): void {
     }
     case "emit": {
       const root = getFlag(rest, "--root") ?? "fixture"
-      const named = rest.filter((a) => !a.startsWith("-") && a !== getFlag(rest, "--root"))
+      const proposalsPath = getFlag(rest, "--proposals")
+      const outHtml = getFlag(rest, "--out") ?? "design-system.html"
+      const outChangeset = getFlag(rest, "--changeset") ?? "changeset.json"
+      const flagValues = new Set(
+        ["--root", "--proposals", "--out", "--changeset"]
+          .map((f) => getFlag(rest, f))
+          .filter((v): v is string => v !== undefined),
+      )
+      const named = rest.filter((a) => !a.startsWith("-") && !flagValues.has(a))
       const components = named.length ? named : DEFAULT_COMPONENTS
-      const items = emitItemsHeuristic(components, root)
+
+      let opusProposals: ComponentProposal[] | undefined
+      if (proposalsPath) {
+        const raw = readFileSync(path.resolve(process.cwd(), proposalsPath), "utf8")
+        opusProposals = JSON.parse(raw) as ComponentProposal[]
+      }
+
+      const items = emitItems(components, root, opusProposals)
       const html = renderDesignSystemHtml(items)
       const changeset = buildChangeset(items)
-      Bun.write("design-system.html", html)
-      Bun.write("changeset.json", JSON.stringify(changeset, null, 2))
+      Bun.write(outHtml, html)
+      Bun.write(outChangeset, JSON.stringify(changeset, null, 2))
       const clusters = items.reduce((n, i) => n + i.report.clusters.length, 0)
       const sites = items.reduce((n, i) => n + i.report.summary.drift_sites, 0)
+      const src = proposalsPath ? `Opus proposals (${proposalsPath})` : "heuristic proposals"
       console.log(
-        `\n  wrote design-system.html + changeset.json` +
+        `\n  wrote ${outHtml} + ${outChangeset}` +
           `\n  ${clusters} clusters · ${sites} drift sites · ${components.join(", ")}` +
-          `\n  open design-system.html to annotate (heuristic proposals; run the workflow for Opus proposals)\n`,
+          `\n  proposals: ${src}` +
+          `\n  open ${outHtml} to annotate\n`,
       )
       break
     }

@@ -48,6 +48,40 @@ describe("classify (appearance vs layout)", () => {
     }
   })
 
+  test("text-flow / overflow utilities are layout, not appearance", () => {
+    // these share the text- prefix but control geometry — folding them into a
+    // shared variant would force wrapping/truncation on every consumer.
+    for (const t of [
+      "text-nowrap",
+      "text-wrap",
+      "text-balance",
+      "text-pretty",
+      "text-ellipsis",
+      "text-clip",
+    ]) {
+      expect(classify(t)).toBe("layout")
+    }
+    // but text color/size/weight remain appearance
+    for (const t of ["text-white", "text-sm", "text-green-800"]) {
+      expect(classify(t)).toBe("appearance")
+    }
+  })
+
+  test("out-of-scope visual namespaces are kept (scope lock: fold only color/radius/shadow/padding)", () => {
+    // intentional: DriftFold does not fold utilities it isn't scoped to reason
+    // about. These stay at the call site rather than being mis-folded.
+    for (const t of [
+      "transition-colors",
+      "duration-200",
+      "ease-in-out",
+      "animate-spin",
+      "cursor-pointer",
+      "backdrop-blur-sm",
+    ]) {
+      expect(classify(t)).toBe("layout")
+    }
+  })
+
   test("utilityCore strips modifiers, bracket-aware", () => {
     expect(utilityCore("hover:bg-blue-700")).toBe("bg-blue-700")
     expect(utilityCore("bg-[#2563eb]")).toBe("bg-[#2563eb]")

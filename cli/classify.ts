@@ -31,8 +31,32 @@ export function utilityCore(token: string): string {
   return core
 }
 
-const TEXT_ALIGN = new Set(["left", "center", "right", "justify", "start", "end"])
+// `text-*` tokens that are NOT color/size/weight (appearance) but flow/overflow
+// (layout). These control geometry — folding them into a shared variant would
+// force wrapping/truncation onto every consumer. Keep them at the call site.
+const TEXT_LAYOUT = new Set([
+  "left",
+  "center",
+  "right",
+  "justify",
+  "start",
+  "end", // alignment
+  "wrap",
+  "nowrap",
+  "balance",
+  "pretty", // text-wrap
+  "ellipsis",
+  "clip", // text-overflow
+])
 const BORDER_LAYOUT = new Set(["collapse", "separate"]) // border-collapse / border-separate
+
+// NOTE on scope: the appearance fold-list below is deliberately limited to the
+// four families the scope lock names — color, radius, shadow, padding (+ their
+// close cousins: gradients, ring, opacity, type, decoration). Visual-but-
+// out-of-scope namespaces (transition-*, animate-*, cursor-*, filter/backdrop-*,
+// transform-*) fall through to "layout" ON PURPOSE: DriftFold keeps them at the
+// call site rather than folding utilities it isn't scoped to reason about. That
+// is correct for THIS tool, not an oversight — see CLAUDE.md "Scope lock".
 
 /** Appearance property-group prefixes (the fold list). */
 const APPEARANCE_PREFIXES = [
@@ -71,10 +95,10 @@ const APPEARANCE_PREFIXES = [
 export function classify(token: string): "appearance" | "layout" {
   const core = utilityCore(token)
 
-  // text-*: alignment is layout; color/size/weight is appearance.
+  // text-*: alignment + flow/overflow is layout; color/size/weight is appearance.
   if (core.startsWith("text-")) {
     const rest = core.slice("text-".length)
-    return TEXT_ALIGN.has(rest) ? "layout" : "appearance"
+    return TEXT_LAYOUT.has(rest) ? "layout" : "appearance"
   }
 
   // border / border-*: most border-* is color/width (appearance); a few are table layout.

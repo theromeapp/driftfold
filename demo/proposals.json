@@ -1,0 +1,91 @@
+[
+  {
+    "component": "Button",
+    "proposals": [
+      {
+        "cluster_id": "btn-1",
+        "decision": "snap-to",
+        "target_variant": "brand",
+        "is_mistake": false,
+        "rationale": "bg-blue-600/hover:bg-blue-700 + rounded-full + shadow-lg + text-white is a distinct elevated pill used in 4 places, unlike default's bg-primary hover:bg-primary/90 — promote to a shared 'brand' variant."
+      },
+      {
+        "cluster_id": "btn-2",
+        "decision": "snap-to",
+        "target_variant": "success",
+        "is_mistake": false,
+        "rationale": "bg-green-600/hover:bg-green-700/text-white recurs across 3 sites as a confirm/success action with no matching cva variant — name it by role as 'success'."
+      },
+      {
+        "cluster_id": "btn-3",
+        "decision": "merge-into",
+        "target_variant": "destructive",
+        "is_mistake": false,
+        "rationale": "Hand-rolled bg-red-600/hover:bg-red-700/text-white is the destructive role already defined as bg-destructive text-destructive-foreground hover:bg-destructive/90 — fold into the existing variant."
+      },
+      {
+        "cluster_id": "btn-4",
+        "decision": "merge-into",
+        "target_variant": "btn-1",
+        "is_mistake": false,
+        "rationale": "bg-[#2563eb]/hover:bg-[#1d4ed8] are the literal hexes of blue-600/blue-700, and with identical rounded-full/shadow-lg/text-white this renders pixel-identical to btn-1 — merge the arbitrary-value duplicate into the named cluster."
+      },
+      {
+        "cluster_id": "btn-5",
+        "decision": "keep",
+        "target_variant": "",
+        "is_mistake": true,
+        "rationale": "bg-blue-600 with text-blue-600 paints the label the same hue as its background (illegible) — an error, not a style; keep at the single site and flag for human review."
+      },
+      {
+        "cluster_id": "btn-6",
+        "decision": "keep",
+        "target_variant": "",
+        "is_mistake": true,
+        "rationale": "bg-purple-500 + px-12 + rounded-none + text-xs + shadow-2xl is a lone one-off matching no role or other cluster — reads as a copy-paste slip; keep at the call site and flag."
+      }
+    ]
+  },
+  {
+    "component": "Card",
+    "proposals": [
+      {
+        "cluster_id": "card-1",
+        "decision": "merge-into",
+        "target_variant": "elevated",
+        "is_mistake": false,
+        "rationale": "The lone shadow-md override is pixel-identical to the existing 'elevated' variant (classes: shadow-md) — it's a hand-rolled duplicate, fold it into the named variant."
+      },
+      {
+        "cluster_id": "card-2",
+        "decision": "snap-to",
+        "target_variant": "accent",
+        "is_mistake": false,
+        "rationale": "border-blue-500 + shadow-lg is a genuinely new look used at 2 sites that matches no existing variant; promote it to a role-named 'accent' variant rather than leaving the blue border drifting."
+      }
+    ]
+  },
+  {
+    "component": "Badge",
+    "proposals": [
+      {
+        "cluster_id": "badge-1",
+        "decision": "snap-to",
+        "target_variant": "muted",
+        "is_mistake": false,
+        "rationale": "bg-gray-100/text-gray-600 is a legible low-emphasis look repeated across 2 sites with no theme-token equivalent among existing variants, so it earns a semantic 'muted' variant."
+      },
+      {
+        "cluster_id": "badge-2",
+        "decision": "snap-to",
+        "target_variant": "success",
+        "is_mistake": false,
+        "rationale": "bg-green-100/text-green-800 is the conventional high-contrast success pairing used in 2 places and no existing variant covers green, so it becomes a 'success' variant named by role not color."
+      }
+    ]
+  },
+  {
+    "component": "Input",
+    "proposals": []
+  }
+]

@@ -65,10 +65,10 @@ function renderSwatch(component: string, classStr: string, label: string): strin
 // reads changes. Short verbs — the adaptive sentence under each control spells
 // out exactly what the choice does.
 const DECISIONS: { value: string; label: string }[] = [
-  { value: "snap-to", label: "✨ New style" },
-  { value: "merge-into", label: "🔁 Replace (it's a duplicate)" },
-  { value: "keep", label: "✋ Keep as-is" },
-  { value: "rename", label: "✏️ Rename" },
+  { value: "snap-to", label: "✨ Make this the main style" },
+  { value: "merge-into", label: "🔁 Same as another — combine them" },
+  { value: "keep", label: "✋ Leave it as-is" },
+  { value: "rename", label: "✏️ Just give it a name" },
 ]
 
 function decisionSelect(p: ClusterProposal | undefined, clusterId: string): string {
@@ -143,10 +143,36 @@ function humanize(utils: string[]): string {
   return joined.charAt(0).toUpperCase() + joined.slice(1)
 }
 
+/**
+ * The de-facto primary = the look a dev reaches for most. We crown the cluster
+ * with the strict-max call-site count (>1 site, not flagged as a mistake). On a
+ * tie there's no clear primary, so we crown nobody. The narrative: you THINK
+ * your primary is the cva default, but you keep hand-writing THIS — so name it.
+ */
+function primaryClusterId(
+  report: ComponentReport,
+  proposalById: Map<string, ClusterProposal>,
+): string | null {
+  let best: Cluster | null = null
+  for (const c of report.clusters) {
+    if (c.site_count <= 1 || proposalById.get(c.cluster_id)?.is_mistake) continue
+    if (!best || c.site_count > best.site_count) best = c
+  }
+  if (!best) return null
+  const tie = report.clusters.some(
+    (c) =>
+      c !== best &&
+      c.site_count === best!.site_count &&
+      !proposalById.get(c.cluster_id)?.is_mistake,
+  )
+  return tie ? null : best.cluster_id
+}
+
 function clusterCard(
   report: ComponentReport,
   cluster: Cluster,
   proposal: ClusterProposal | undefined,
+  isPrimary: boolean,
 ): string {
   const label = proposal?.target_variant || report.component
   const swatch = renderSwatch(
@@ -168,6 +194,9 @@ function clusterCard(
 
   const description = humanize(cluster.appearance_utils)
   const usedIn = `Used in ${cluster.site_count} place${cluster.site_count === 1 ? "" : "s"}`
+  const primaryTag = isPrimary
+    ? `<span class="df-tag df-tag-primary">★ your main one</span>`
+    : ""
   const onceTag =
     cluster.site_count === 1 && !proposal?.is_mistake
       ? `<span class="df-tag df-tag-outlier">only here</span>`
@@ -177,10 +206,10 @@ function clusterCard(
     : ""
 
   return `
-  <div class="df-cluster" data-cluster="${cluster.cluster_id}">
+  <div class="df-cluster${isPrimary ? " df-primary" : ""}" data-cluster="${cluster.cluster_id}">
     <div class="df-cluster-head">
       <span class="df-count">${usedIn}</span>
-      ${onceTag}${mistake}
+      ${primaryTag}${onceTag}${mistake}
     </div>
     <div class="df-swatch">${swatch}</div>
     <p class="df-desc">${esc(description)}</p>
@@ -213,8 +242,9 @@ function componentSection(item: EmitItem): string {
     </section>`
   }
 
+  const primaryId = primaryClusterId(report, proposalById)
   const cards = report.clusters
-    .map((c) => clusterCard(report, c, proposalById.get(c.cluster_id)))
+    .map((c) => clusterCard(report, c, proposalById.get(c.cluster_id), c.cluster_id === primaryId))
     .join("")
 
   const dyn = report.dynamic.length
@@ -223,11 +253,21 @@ function componentSection(item: EmitItem): string {
         .join("")}</ul></details>`
     : ""
 
-  const lookWord = report.summary.cluster_count === 1 ? "look" : "different looks"
-  const placeWord = report.summary.drift_sites === 1 ? "place" : "places"
+  const n = report.summary.cluster_count
+  const sites = report.summary.drift_sites
+  const placeWord = sites === 1 ? "place" : "places"
+  let sub: string
+  if (primaryId && n > 1) {
+    const others = n - 1
+    sub = `your main one + ${others} that look a bit different, across ${sites} ${placeWord}`
+  } else if (n === 1) {
+    sub = `1 look across ${sites} ${placeWord}`
+  } else {
+    sub = `${n} different looks across ${sites} ${placeWord}`
+  }
   return `
   <section class="df-component">
-    <h2>${esc(report.component)} <span class="df-sub">${report.summary.cluster_count} ${lookWord} across ${report.summary.drift_sites} ${placeWord}</span></h2>
+    <h2>${esc(report.component)} <span class="df-sub">${sub}</span></h2>
     <div class="df-grid">${cards}</div>
     ${dyn}
   </section>`
@@ -259,127 +299,168 @@ export function renderDesignSystemHtml(items: EmitItem[]): string {
 <script src="https://cdn.tailwindcss.com"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet" />
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Hanken+Grotesk:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
 <style>
   :root {
-    color-scheme: dark;
-    --bg:#080a10; --panel:#10131d; --panel-2:#141826; --line:#222840; --line-soft:#1b2034;
-    --ink:#e9ebf2; --ink-2:#aab2c8; --ink-3:#6f7791;
-    --blue:#4f8cff; --blue-deep:#2f6ad9; --violet:#8b6bff; --amber:#f0b765; --coral:#f08aa6; --mint:#5ed6a4;
-    --sans:'IBM Plex Sans',ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
+    color-scheme: light;
+    /* warm paper canvas — a design studio, not a terminal */
+    --paper:#f4f1e9; --paper-2:#ece7db; --card:#fffdf8; --card-2:#fbf8f1;
+    --ink:#23211c; --ink-2:#605a4e; --ink-3:#938c7c; --ink-4:#b6ae9c;
+    --line:#e6e0d2; --line-soft:#efe9dc; --line-strong:#dcd4c2;
+    --accent:#3257d6; --accent-deep:#2542b0; --accent-wash:#eaeefb; --accent-line:#cdd6f6;
+    --violet:#7c50c8; --violet-wash:#f0e9fa; --violet-line:#dcccf1;
+    --ochre:#b3812a; --ochre-wash:#f6edd6; --ochre-line:#e6d4a6;
+    --rose:#c0405f; --rose-wash:#f9e6ea; --rose-line:#eecdd5;
+    --green:#3a8f63;
+    /* warm, layered shadows tuned for paper (base = rgb 38,32,20) */
+    --sh-1:0 1px 2px rgba(38,32,20,.05), 0 1px 1px rgba(38,32,20,.04);
+    --sh-card:0 1px 1px rgba(38,32,20,.04), 0 4px 10px -4px rgba(38,32,20,.07), 0 14px 30px -16px rgba(38,32,20,.12);
+    --sh-hover:0 2px 4px rgba(38,32,20,.05), 0 10px 22px -8px rgba(38,32,20,.11), 0 26px 48px -20px rgba(38,32,20,.18);
+    --sans:'Hanken Grotesk',ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
     --mono:'IBM Plex Mono',ui-monospace,SFMono-Regular,Menlo,monospace;
     --display:'Fraunces',Georgia,serif;
   }
   * { box-sizing: border-box; }
-  body { margin:0; font:14px/1.55 var(--sans); color:var(--ink); background:var(--bg);
+  body { margin:0; font:14px/1.55 var(--sans); color:var(--ink); background:var(--paper);
          background-image:
-           radial-gradient(900px 480px at 12% -8%, rgba(79,140,255,.14), transparent 60%),
-           radial-gradient(760px 420px at 92% -4%, rgba(139,107,255,.12), transparent 62%),
-           radial-gradient(600px 600px at 50% 120%, rgba(94,214,164,.05), transparent 60%);
-         background-attachment:fixed; -webkit-font-smoothing:antialiased; }
-  ::selection { background:rgba(79,140,255,.32); }
-  header { padding:30px 32px 18px; border-bottom:1px solid var(--line-soft); position:sticky; top:0;
-           background:rgba(8,10,16,.82); backdrop-filter:blur(10px) saturate(1.1); z-index:20; }
-  header h1 { margin:0; font-family:var(--display); font-weight:600; font-size:30px; letter-spacing:-.02em;
-              background:linear-gradient(92deg,#fff 18%,#bcd0ff 72%,#c9bdff); -webkit-background-clip:text;
-              background-clip:text; color:transparent; }
-  header h1 .tag { font-family:var(--sans); font-size:13.5px; font-weight:400; letter-spacing:0;
-                   color:var(--ink-3); -webkit-text-fill-color:var(--ink-3); }
-  header p { margin:9px 0 0; color:var(--ink-2); max-width:780px; font-size:14.5px; }
-  .stat { color:var(--mint); font-weight:600; font-variant-numeric:tabular-nums; }
-  .how { margin:15px 0 0; display:flex; flex-wrap:wrap; gap:9px; align-items:center;
+           radial-gradient(1100px 520px at 8% -10%, rgba(50,87,214,.06), transparent 60%),
+           radial-gradient(820px 460px at 96% -6%, rgba(179,129,42,.07), transparent 62%);
+         background-attachment:fixed; -webkit-font-smoothing:antialiased; text-rendering:optimizeLegibility; }
+  ::selection { background:var(--accent-wash); }
+  header { padding:30px 32px 20px; border-bottom:1px solid var(--line-soft); position:sticky; top:0;
+           background:rgba(244,241,233,.78); backdrop-filter:blur(14px) saturate(1.2);
+           -webkit-backdrop-filter:blur(14px) saturate(1.2); z-index:20;
+           box-shadow:0 1px 0 rgba(255,255,255,.6) inset, 0 10px 30px -24px rgba(38,32,20,.5); }
+  header h1 { margin:0; font-family:var(--display); font-weight:600; font-size:31px; letter-spacing:-.025em;
+              color:var(--ink); text-wrap:balance; }
+  header h1 .mark { color:var(--accent); }
+  header h1 .tag { font-family:var(--sans); font-size:13.5px; font-weight:450; letter-spacing:0; color:var(--ink-3); }
+  header p { margin:11px 0 0; color:var(--ink-2); max-width:760px; font-size:14.5px; text-wrap:pretty; }
+  .stat { color:var(--accent); font-weight:700; font-variant-numeric:tabular-nums; }
+  .how { margin:16px 0 0; display:flex; flex-wrap:wrap; gap:8px; align-items:center;
          font-size:12.5px; color:var(--ink-2); }
-  .how b { color:var(--ink); margin-right:3px; }
-  .how span { background:var(--panel); border:1px solid var(--line-soft); border-radius:8px; padding:5px 10px; }
-  .how em { color:#fff; font-style:normal; font-weight:600; }
-  main { max-width:1200px; margin:0 auto; padding:30px 32px 250px; }
-  .df-component { margin:42px 0; }
-  .df-component:first-child { margin-top:26px; }
-  .df-component h2 { font-family:var(--display); font-weight:600; font-size:23px; letter-spacing:-.015em;
-                     margin:0 0 16px; display:flex; align-items:baseline; gap:11px; }
-  .df-sub { color:var(--ink-3); font-weight:400; font-size:13px; font-family:var(--sans); letter-spacing:0; }
-  .df-clean { color:var(--mint); font-weight:600; font-size:13px; font-family:var(--sans); }
-  .df-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(310px,1fr)); gap:16px; }
-  .df-cluster { position:relative; border-radius:14px; padding:16px;
-                background:linear-gradient(180deg,var(--panel-2),var(--panel));
-                border:1px solid var(--line); box-shadow:0 1px 0 rgba(255,255,255,.03) inset, 0 8px 24px -16px rgba(0,0,0,.8);
-                transition:transform .16s ease, border-color .16s ease, box-shadow .16s ease; }
-  .df-cluster:hover { transform:translateY(-2px); border-color:#2e3656;
-                      box-shadow:0 1px 0 rgba(255,255,255,.04) inset, 0 16px 34px -18px rgba(0,0,0,.9); }
-  .df-cluster-head { display:flex; align-items:center; gap:8px; margin-bottom:12px; }
+  .how b { color:var(--ink); margin-right:4px; font-weight:600; }
+  .how span { background:var(--card); border:1px solid var(--line); border-radius:9px; padding:6px 11px;
+              box-shadow:var(--sh-1); }
+  .how em { color:var(--accent); font-style:normal; font-weight:600; }
+  main { max-width:1200px; margin:0 auto; padding:32px 32px 260px; }
+  .df-component { margin:46px 0; }
+  .df-component:first-child { margin-top:28px; }
+  .df-component h2 { font-family:var(--display); font-weight:600; font-size:24px; letter-spacing:-.02em;
+                     margin:0 0 18px; display:flex; align-items:baseline; gap:12px; color:var(--ink); text-wrap:balance; }
+  .df-sub { color:var(--ink-3); font-weight:450; font-size:13px; font-family:var(--sans); letter-spacing:0; }
+  .df-clean { color:var(--green); font-weight:600; font-size:13px; font-family:var(--sans); }
+  .df-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(312px,1fr)); gap:18px; }
+  .df-cluster { position:relative; border-radius:18px; padding:18px;
+                background:var(--card); border:1px solid var(--line); box-shadow:var(--sh-card);
+                transition:transform .18s cubic-bezier(.2,.7,.2,1), border-color .18s ease, box-shadow .18s ease; }
+  .df-cluster:hover { transform:translateY(-3px); border-color:var(--line-strong); box-shadow:var(--sh-hover); }
+  .df-cluster-head { display:flex; align-items:center; gap:8px; margin-bottom:13px; }
   .df-cid { font-family:var(--mono); font-weight:600; color:var(--ink-2); }
-  .df-count { color:var(--ink); font-size:13px; font-weight:600; letter-spacing:-.01em; }
-  .df-tag { font-size:10.5px; padding:2px 8px; border-radius:999px; font-weight:600; letter-spacing:.01em;
+  .df-count { color:var(--ink); font-size:13px; font-weight:600; letter-spacing:-.01em; font-variant-numeric:tabular-nums; }
+  .df-tag { font-size:10.5px; padding:3px 9px; border-radius:999px; font-weight:600; letter-spacing:.01em;
             border:1px solid transparent; }
-  .df-tag-outlier { background:rgba(240,183,101,.12); color:var(--amber); border-color:rgba(240,183,101,.3); }
-  .df-tag-mistake { background:rgba(240,138,166,.12); color:var(--coral); border-color:rgba(240,138,166,.32); }
-  .df-swatch { background:radial-gradient(120% 120% at 50% 0%,#fafafa,#ececed); border-radius:10px; padding:20px;
-               display:flex; align-items:center; justify-content:center; min-height:68px; margin-bottom:12px;
-               box-shadow:0 1px 2px rgba(0,0,0,.4) inset; }
-  .df-desc { margin:0 0 13px; font-size:13.5px; color:var(--ink); font-weight:500; letter-spacing:-.005em; }
-  .df-chips-wrap { margin-top:11px; }
+  .df-tag-primary { background:var(--accent); color:#fff; border-color:transparent;
+            box-shadow:0 1px 2px rgba(50,87,214,.4); }
+  .df-tag-outlier { background:var(--ochre-wash); color:var(--ochre); border-color:var(--ochre-line); }
+  .df-tag-mistake { background:var(--rose-wash); color:var(--rose); border-color:var(--rose-line); }
+  .df-swatch { background:var(--paper-2); border-radius:13px; padding:22px;
+               display:flex; align-items:center; justify-content:center; min-height:72px; margin-bottom:14px;
+               outline:1px solid rgba(0,0,0,.06); outline-offset:-1px;
+               box-shadow:0 1px 2px rgba(38,32,20,.05) inset; }
+  .df-desc { margin:0 0 14px; font-size:14px; color:var(--ink); font-weight:500; letter-spacing:-.005em; text-wrap:pretty; }
+  .df-chips-wrap { margin-top:12px; }
   .df-chips-wrap summary, .df-sites summary, .df-dynamic summary { cursor:pointer; color:var(--ink-3);
             font-size:12px; transition:color .12s ease; }
-  .df-chips-wrap summary:hover, .df-sites summary:hover, .df-dynamic summary:hover { color:var(--blue); }
-  .df-chips { display:flex; flex-wrap:wrap; gap:5px; margin-top:9px; }
-  .df-chip { font-family:var(--mono); font-size:11px; background:rgba(79,140,255,.09);
-             color:#9fb4e8; padding:2px 7px; border-radius:6px; border:1px solid rgba(79,140,255,.14); }
+  .df-chips-wrap summary:hover, .df-sites summary:hover, .df-dynamic summary:hover { color:var(--accent); }
+  .df-chips { display:flex; flex-wrap:wrap; gap:5px; margin-top:10px; }
+  .df-chip { font-family:var(--mono); font-size:11px; background:var(--accent-wash);
+             color:var(--accent-deep); padding:3px 7px; border-radius:7px; border:1px solid var(--accent-line); }
   .df-proposal { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
-  .df-proposal label { color:var(--ink-2); font-size:11px; font-weight:600; width:100%; text-transform:uppercase;
-                       letter-spacing:.07em; margin-bottom:2px; }
-  .df-select, .df-input { background:#0b0e16; color:var(--ink); border:1px solid #2a3147;
-             border-radius:8px; padding:8px 10px; font-size:13px; font-family:var(--sans); transition:border-color .14s ease; }
+  .df-proposal label { color:var(--ink-3); font-size:11px; font-weight:600; width:100%; text-transform:uppercase;
+                       letter-spacing:.07em; margin-bottom:3px; }
+  .df-select, .df-input { background:var(--card-2); color:var(--ink); border:1px solid var(--line-strong);
+             border-radius:10px; padding:9px 11px; font-size:13px; font-family:var(--sans); box-shadow:var(--sh-1);
+             transition:border-color .14s ease, box-shadow .14s ease, background-color .14s ease; }
   .df-select { flex:1; min-width:200px; font-weight:500; cursor:pointer; }
   .df-input { flex:1; min-width:120px; }
-  .df-select:focus, .df-input:focus { outline:none; border-color:var(--blue); box-shadow:0 0 0 3px rgba(79,140,255,.15); }
+  .df-select:hover, .df-input:hover:not(:disabled) { border-color:var(--ink-4); }
+  .df-select:focus, .df-input:focus { outline:none; border-color:var(--accent); background:var(--card);
+             box-shadow:0 0 0 3px var(--accent-wash); }
   .df-input:disabled { cursor:not-allowed; }
   /* the adaptive plain-English sentence — the line a human actually reads to know what their pick does */
-  .df-plain { margin:12px 0 0; padding:10px 12px; font-size:13.5px; line-height:1.5; color:var(--ink); font-weight:500;
-              background:linear-gradient(180deg,rgba(79,140,255,.08),rgba(79,140,255,.03));
-              border:1px solid rgba(79,140,255,.2); border-left:3px solid var(--blue); border-radius:9px; }
-  .df-merge .df-plain { background:linear-gradient(180deg,rgba(139,107,255,.1),rgba(139,107,255,.03));
-              border-color:rgba(139,107,255,.26); border-left-color:var(--violet); }
-  .df-why-wrap { margin-top:9px; }
+  .df-plain { margin:13px 0 0; padding:11px 13px; font-size:13.5px; line-height:1.5; color:var(--ink); font-weight:500;
+              background:var(--accent-wash); border:1px solid var(--accent-line); border-left:3px solid var(--accent);
+              border-radius:11px; text-wrap:pretty; }
+  .df-merge .df-plain { background:var(--violet-wash); border-color:var(--violet-line); border-left-color:var(--violet); }
+  .df-why-wrap { margin-top:10px; }
   .df-why-wrap summary { cursor:pointer; color:var(--ink-3); font-size:12px; list-style:none; transition:color .12s ease; }
-  .df-why-wrap summary:hover { color:var(--blue); }
+  .df-why-wrap summary:hover { color:var(--accent); }
   .df-why-wrap summary::-webkit-details-marker { display:none; }
-  .df-why-wrap summary::before { content:"ⓘ "; color:#5a6075; }
-  .df-why { color:var(--ink-2); font-size:12.5px; margin:8px 0 0; font-style:italic; }
-  .df-sites { margin-top:11px; }
-  .df-sites ul, .df-dynamic ul { margin:9px 0 0; padding-left:18px; }
-  .df-sites li, .df-dynamic li { margin:4px 0; font-size:12px; color:var(--ink-2); }
+  .df-why-wrap summary::before { content:"ⓘ "; color:var(--ink-4); }
+  .df-why { color:var(--ink-2); font-size:12.5px; margin:9px 0 0; font-style:italic; text-wrap:pretty; }
+  .df-sites { margin-top:12px; }
+  .df-sites ul, .df-dynamic ul { margin:10px 0 0; padding-left:18px; }
+  .df-sites li, .df-dynamic li { margin:5px 0; font-size:12px; color:var(--ink-2); }
   .df-sites code, .df-dynamic code { font-family:var(--mono); color:var(--ink-2); }
-  .df-ln { color:var(--ink-3); }
-  .df-keep { color:var(--mint); }
-  .df-dynamic { margin-top:16px; }
-  .df-merge { border-color:rgba(139,107,255,.55) !important;
-              box-shadow:0 0 0 1px rgba(139,107,255,.25), 0 16px 34px -18px rgba(139,107,255,.4) !important; }
-  /* live changeset dock */
-  #dock { position:fixed; bottom:0; left:0; right:0; background:rgba(9,11,18,.94); border-top:1px solid var(--line);
-          backdrop-filter:blur(12px); z-index:30; max-height:230px; overflow:auto; }
-  #dock-bar { display:flex; align-items:center; gap:12px; padding:11px 32px; position:sticky; top:0;
-              background:rgba(9,11,18,.96); border-bottom:1px solid var(--line-soft); }
-  #dock-bar b { font-size:13px; font-weight:600; } #dock-bar .hint { color:var(--ink-3); font-size:12px; }
-  #dock pre { margin:0; padding:13px 32px 22px; font-family:var(--mono); font-size:11.5px;
-              color:#9fb4e8; white-space:pre; }
+  .df-ln { color:var(--ink-3); font-variant-numeric:tabular-nums; }
+  .df-keep { color:var(--green); }
+  .df-dynamic { margin-top:18px; }
+  .df-merge { border-color:var(--violet-line) !important;
+              box-shadow:0 0 0 1px var(--violet-line), 0 14px 30px -16px rgba(124,80,200,.4) !important; }
+  /* the de-facto primary gets a calm cobalt ring so it reads as the hero of the set */
+  .df-primary { border-color:var(--accent-line);
+              box-shadow:0 0 0 1.5px var(--accent-line), var(--sh-card); }
+  .df-primary:hover { border-color:var(--accent);
+              box-shadow:0 0 0 1.5px var(--accent), var(--sh-hover); }
+  /* live changeset dock — a calm light "review tray", not a terminal */
+  #dock { position:fixed; bottom:0; left:0; right:0; background:rgba(248,246,240,.9); border-top:1px solid var(--line);
+          backdrop-filter:blur(16px) saturate(1.2); -webkit-backdrop-filter:blur(16px) saturate(1.2);
+          z-index:30; max-height:236px; overflow:auto; box-shadow:0 -12px 36px -26px rgba(38,32,20,.55); }
+  #dock-bar { display:flex; align-items:center; gap:12px; padding:13px 32px; position:sticky; top:0;
+              background:rgba(248,246,240,.96); border-bottom:1px solid var(--line-soft); }
+  #dock-bar b { font-size:13px; font-weight:600; color:var(--ink); }
+  #dock-bar .hint { color:var(--ink-3); font-size:12px; }
+  #dock pre { margin:0; padding:14px 32px 24px; font-family:var(--mono); font-size:11.5px;
+              color:var(--ink-2); white-space:pre; }
   button.df-act { margin-left:auto; }
-  button.df-act, #copy { background:linear-gradient(180deg,var(--blue),var(--blue-deep)); color:#fff; border:0;
-          border-radius:8px; padding:8px 15px; font-size:13px; font-weight:600; cursor:pointer; font-family:var(--sans);
-          box-shadow:0 6px 16px -8px rgba(79,140,255,.7); transition:transform .12s ease, filter .12s ease; }
-  #copy { margin-left:8px; background:#1c2236; box-shadow:none; }
-  button.df-act:hover { filter:brightness(1.08); transform:translateY(-1px); }
-  #copy:hover { background:#252c46; }
+  button.df-act { background:var(--accent); color:#fff; border:0;
+          border-radius:10px; padding:9px 16px; font-size:13px; font-weight:600; cursor:pointer; font-family:var(--sans);
+          box-shadow:0 1px 1px rgba(38,32,20,.1), 0 8px 18px -8px rgba(50,87,214,.6);
+          transition:transform .1s cubic-bezier(.2,.7,.2,1), background-color .15s ease, box-shadow .15s ease; }
+  #copy { margin-left:8px; background:var(--card); color:var(--ink-2); border:1px solid var(--line-strong);
+          border-radius:10px; padding:9px 15px; font-size:13px; font-weight:600; cursor:pointer; font-family:var(--sans);
+          box-shadow:var(--sh-1); transition:transform .1s cubic-bezier(.2,.7,.2,1), border-color .15s ease, color .15s ease; }
+  button.df-act:hover { background:var(--accent-deep); transform:translateY(-1px); }
+  button.df-act:active { transform:scale(.96); }
+  #copy:hover { border-color:var(--ink-4); color:var(--ink); }
+  #copy:active { transform:scale(.96); }
+  /* one orchestrated page-load cascade — softer than a wall of motion, off for reduced-motion */
+  @media (prefers-reduced-motion: no-preference) {
+    @keyframes dfRise { from { opacity:0; transform:translateY(10px); } to { opacity:1; transform:none; } }
+    header h1, header p, header .how { animation:dfRise .55s cubic-bezier(.2,.7,.2,1) both; }
+    header p { animation-delay:.06s; } header .how { animation-delay:.12s; }
+    .df-component { animation:dfRise .6s cubic-bezier(.2,.7,.2,1) both; }
+    .df-grid > .df-cluster { animation:dfRise .55s cubic-bezier(.2,.7,.2,1) both; }
+    .df-grid > .df-cluster:nth-child(1) { animation-delay:.02s; }
+    .df-grid > .df-cluster:nth-child(2) { animation-delay:.07s; }
+    .df-grid > .df-cluster:nth-child(3) { animation-delay:.12s; }
+    .df-grid > .df-cluster:nth-child(4) { animation-delay:.17s; }
+    .df-grid > .df-cluster:nth-child(5) { animation-delay:.22s; }
+    .df-grid > .df-cluster:nth-child(6) { animation-delay:.27s; }
+    .df-grid > .df-cluster:nth-child(n+7) { animation-delay:.3s; }
+  }
 </style>
 </head>
 <body>
 <header>
-  <h1>DriftFold <span class="tag">· what your buttons & cards actually look like</span></h1>
-  <p>We scanned your app and found <span class="stat">${totalClusters}</span> slightly-different looks, used in <span class="stat">${totalSites}</span> places. Some are accidental copies of each other. Below, each card is one look — decide what to do with it, then download your choices at the bottom.</p>
+  <h1>Drift<span class="mark">Fold</span> <span class="tag">· what your buttons &amp; cards actually look like</span></h1>
+  <p>We looked through your app and found <span class="stat">${totalClusters}</span> button and card styles that don't quite match, used across <span class="stat">${totalSites}</span> spots. A lot of them are really the same thing twice. Each card below is one style — just tell us what to do with it, then download your choices at the bottom.</p>
   <div class="how">
-    <b>How to use this:</b>
+    <b>How it works:</b>
     <span>① Look at each style.</span>
-    <span>② Pick an action from the dropdown.</span>
-    <span>③ Hit <em>Download my choices</em> — that file tells DriftFold how to clean up the code.</span>
+    <span>② Tell us what to do with it.</span>
+    <span>③ Hit <em>Download my choices</em> — that's the file that cleans things up.</span>
   </div>
 </header>
 <main>${sections}</main>
@@ -431,14 +512,14 @@ export function renderDesignSystemHtml(items: EmitItem[]): string {
     const name = (target || '').trim();
     if (decision === 'snap-to')
       return name
-        ? 'Create a new “' + name + '” style and use it in all ' + here + '.'
-        : 'Make this a new reusable style — name it on the right.';
+        ? 'Make this the “' + name + '” style and use it in all ' + here + '.'
+        : 'Make this its own style — give it a name on the right.';
     if (decision === 'merge-into')
       return name
-        ? 'Replace these ' + here + ' with the existing “' + name + '” style.'
-        : 'These are duplicates — type which style to replace them with.';
+        ? 'These are the same as “' + name + '” — switch all ' + here + ' to use it.'
+        : 'These look like copies — type the style they should use instead.';
     if (decision === 'rename')
-      return name ? 'Rename this style to “' + name + '”.' : 'Keep it, but give it a name on the right.';
+      return name ? 'Just rename this style to “' + name + '”.' : 'Keep it as-is, but give it a name on the right.';
     return 'Leave these ' + here + ' exactly as they are.';
   }
   function syncRow(el) {
@@ -455,7 +536,7 @@ export function renderDesignSystemHtml(items: EmitItem[]): string {
       tinp.disabled = off;
       tinp.style.opacity = off ? '0.35' : '1';
       tinp.placeholder =
-        decision === 'merge-into' ? 'replace with… e.g. brand' : 'name it… e.g. Primary';
+        decision === 'merge-into' ? 'which style?… e.g. destructive' : 'name it… e.g. Primary';
     }
     if (plain) plain.textContent = plainSentence(id, decision, tinp ? tinp.value : '');
   }
